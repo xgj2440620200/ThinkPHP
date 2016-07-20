@@ -32,9 +32,19 @@ class Storage {
     }
 
     static public function __callstatic($method,$args){
+    	/*
+    	 * $method——'has'
+    	 * $args——array('./Runtime/common~runtime.php')
+    	 */
+    	//end——将数组的内部指针指向最后一个单元。
+    	//$type——'./Runtime/common~runtime.php'
         $type=end($args);
+        //ucfirst——将字符串的首字符转换为大写
         $method_type=$method.ucfirst($type);
         if(method_exists(self::$handler, $method_type)){
+           /*
+            * call_user_func_array——调用回调函数，并把一个数组参数作为回调函数的参数。
+            */
            return call_user_func_array(array(self::$handler,$method_type), $args);
         }
         //调用缓存类型自己的方法

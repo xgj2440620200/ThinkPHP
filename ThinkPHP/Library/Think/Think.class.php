@@ -44,22 +44,30 @@ class Think {
       set_exception_handler('Think\Think::appException');
 
       // 初始化文件存储方式
-      Storage::connect(STORAGE_TYPE);
-
+      //STORAGE_TYPE——'File'
+      Storage::connect(STORAGE_TYPE);	
+	
+      //APP_MODE——'common'
+      //$runtimefile——'./Runtime/common~runtime.php'
       $runtimefile  = RUNTIME_PATH.APP_MODE.'~runtime.php';
-      if(!APP_DEBUG && Storage::has($runtimefile)){
-          Storage::load($runtimefile);
+      if(!APP_DEBUG && Storage::has($runtimefile)){	//判断是否有这个文件。并没有这个文件。
+          Storage::load($runtimefile);	//用include包含并运行此文件。
       }else{
           if(Storage::has($runtimefile))
-              Storage::unlink($runtimefile);
+              Storage::unlink($runtimefile);	//删除文件。
           $content =  '';
           // 读取应用模式
+          //CONF_PATH.'core.php'——'./Application/Common/Conf/core.php'
+          //MODE_PATH.APP_MODE.'.php'——'D:\WWW\ot\ThinkPHP/Mode/common.php'。包含的是这个文件。
+          //包含运行core.php文件，
+          //$model实际上就是包含文件中的数组。
           $mode   =   include is_file(CONF_PATH.'core.php')?CONF_PATH.'core.php':MODE_PATH.APP_MODE.'.php';
+          //mine>>>
           // 加载核心文件
           foreach ($mode['core'] as $file){
               if(is_file($file)) {
                 include $file;
-                if(!APP_DEBUG) $content   .= compile($file);
+                if(!APP_DEBUG) $content   .= compile($file);	//如果不是调试模式，就编译加载的核心文件。
               }
           }
 
@@ -78,10 +86,11 @@ class Think {
           }
 
           // 加载应用别名定义文件
-          if(is_file(CONF_PATH.'alias.php'))
+          //CONF_PATH.'alias.php'——'./Application/Common/Conf/alias.php'
+          if(is_file(CONF_PATH.'alias.php'))	//没有这个文件。
               self::addMap(include CONF_PATH.'alias.php');
 
-          // 加载模式行为定义
+          // 加载模式行为定义。导入了插件
           if(isset($mode['tags'])) {
               Hook::import(is_array($mode['tags'])?$mode['tags']:include $mode['tags']);
           }
@@ -92,13 +101,17 @@ class Think {
               Hook::import(include CONF_PATH.'tags.php');   
 
           // 加载框架底层语言包
+          //加载一些语言变量，‘无法加载控制器’之类的。
           L(include THINK_PATH.'Lang/'.strtolower(C('DEFAULT_LANG')).'.php');
 
           if(!APP_DEBUG){
+          	//var_export——输出变的字符串表示，类似于var_dump()。
+          	//将插件、语言变量、配置参数、模式别名等吸入到运行时文件中。
               $content  .=  "\nnamespace { Think\Think::addMap(".var_export(self::$_map,true).");";
               $content  .=  "\nL(".var_export(L(),true).");\nC(".var_export(C(),true).');Think\Hook::import('.var_export(Hook::get(),true).');}';
-              Storage::put($runtimefile,strip_whitespace('<?php '.$content));
+              Storage::put($runtimefile,strip_whitespace('<?php '.$content));	//一个'<?php'连接字符串，就将字符串变成了一个php文件。
           }else{
+          	//会加载两个地方的debug.php文件。
             // 调试模式加载系统默认的配置文件
             C(include THINK_PATH.'Conf/debug.php');
             // 读取应用调试配置文件
@@ -108,22 +121,28 @@ class Think {
       }
 
       // 读取当前应用状态对应的配置文件
+      //APP_STATUS——''
       if(APP_STATUS && is_file(CONF_PATH.APP_STATUS.'.php'))
           C(include CONF_PATH.APP_STATUS.'.php');   
 
       // 设置系统时区
+      //date_default_timezone_set——设定用于一个脚本中所有日期时间函数的默认时区
+      //DEFAULT_TIMEZONE——'PRC'
       date_default_timezone_set(C('DEFAULT_TIMEZONE'));
 
       // 检查应用目录结构 如果不存在则自动创建
+      //CHECK_APP_DIR——1
+      //LOG_PATH——'./Runtime/Logs/'
       if(C('CHECK_APP_DIR') && !is_dir(LOG_PATH)) {
           // 创建应用目录结构
+          //reuqire在包含运行文件时，如果出错会导致脚本终止。
           require THINK_PATH.'Common/build.php';
       }
 
       // 记录加载文件时间
       G('loadTime');
       // 运行应用
-      App::run();
+      App::run();//undo
     }
 
     // 注册classmap
