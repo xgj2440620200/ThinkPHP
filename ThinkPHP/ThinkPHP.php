@@ -117,6 +117,16 @@ if(!IS_CLI) {
             //CGI/FASTCGI模式下
 			//$_SERVER['PHP_SELF']——当前执行脚本的文件名，与document root有关。       
             $_temp  = explode('.php',$_SERVER['PHP_SELF']);
+            //_PHP_FILE_——'/ot/index.php'
+            /*
+             * rtrim——删除字符串末端的空白字符（或者其他字符）。
+             */
+            /*
+             * str_replace——子字符串替换
+             * str_replace($search, $replace, $subject)
+             * 该函数返回一个字符串或者数组。该字符串或数组是将subject中全部的search用replace替换之后的结果。
+             * 如果没有一些特殊的替换需求（比如正则表达式），你应该使用该函数替换preg_replace()和preg_repalce()。
+             */
             define('_PHP_FILE_',    rtrim(str_replace($_SERVER['HTTP_HOST'],'',$_temp[0].'.php'),'/'));
         }else {
             define('_PHP_FILE_',    rtrim($_SERVER['SCRIPT_NAME'],'/'));
