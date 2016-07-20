@@ -15,7 +15,7 @@ class File {
 
     protected $config  =   array(
         'log_time_format'   =>  ' c ',
-        'log_file_size'     =>  2097152,
+        'log_file_size'     =>  2097152,	//限制了日志文件的大小。
         'log_path'          =>  '',
     );
 
@@ -26,6 +26,7 @@ class File {
 
     /**
      * 日志写入接口
+     * debug>>>如果日志文件的大小已经比较大，这里并没有新建文件的操作额？
      * @access public
      * @param string $log 日志信息
      * @param string $destination  写入目标
@@ -36,8 +37,12 @@ class File {
         if(empty($destination))
             $destination = $this->config['log_path'].date('y_m_d').'.log';
         //检测日志文件大小，超过配置大小则备份日志文件重新生成
-        if(is_file($destination) && floor($this->config['log_file_size']) <= filesize($destination) )
+        if(is_file($destination) && floor($this->config['log_file_size']) <= filesize($destination) )	//debug>>>这个floor()会返回什么？
+        	  //rename——重命名一个文件或目录。
+        	  //time——返回当前的Unix时间戳。常用语date()的第二个参数。
+        	  //basename——返回路径中的文件名部分。
               rename($destination,dirname($destination).'/'.time().'-'.basename($destination));
+        //error_log——发送错误信息到某个地方。
         error_log("[{$now}] ".$_SERVER['REMOTE_ADDR'].' '.$_SERVER['REQUEST_URI']."\r\n{$log}\r\n", 3,$destination);
     }
 }

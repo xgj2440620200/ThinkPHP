@@ -28,10 +28,19 @@ class Think {
      */
     static public function start() {
       // 注册AUTOLOAD方法
+      /* spl_autoload_register——注册给定的函数作为__autoload的实现。
+       * 将函数注册到SPL __autoload函数队列中。如果该队列中的函数尚未激活，则激活它们。
+       * 如果在你的程序中已经实现了__autoload()函数，它必须显示注册到__autoload()函数取代为spl_autoload()或spla_autoload_class()。
+       */
       spl_autoload_register('Think\Think::autoload');      
       // 设定错误和异常处理
+      /*
+       * register_shutdown_function——设置一个当脚本执行完成或意外死掉导致PHP执行即将关闭时可以被调用的函数。
+       */
       register_shutdown_function('Think\Think::fatalError');
+      //set_error_handler——设置一个用户自定义的错误处理函数
       set_error_handler('Think\Think::appError');
+      //set_exception_handler——设置一个用户自定义的异常处理函数
       set_exception_handler('Think\Think::appException');
 
       // 初始化文件存储方式
@@ -128,15 +137,25 @@ class Think {
 
     /**
      * 类库自动加载
+     * 通过类名从映射、系统定义的命名空间和自定义的命名空间中找到类文件，使用include包含并运行。
      * @param string $class 对象类名
      * @return void
      */
     public static function autoload($class) {
         // 检查是否存在映射
         if(isset(self::$_map[$class])) {
+        	//include——包含并且运行指定文件。
             include self::$_map[$class];
         }else{
-          $name           =   strstr($class, '\\', true);
+        	/*
+        	 * strstr——查找字符串的首次出现到末尾的字符串
+        	 * string strstr(string $haystack, mixed $needle)
+        	 * 返回haystack字符串从needle第一次出现的位置开始到haystack结尾的字符串。
+        	 * 注意：该函数区分大小写。如果想不区分带瞎写，使用stristr()。
+        	 * 如果仅仅想确定needle是否存在于haystack中，使用速度
+        	 */
+          $name           =   strstr($class, '\\', true);	//将斜线转移
+          //is_dir——判断给定的文件名是否是一个目录
           if(in_array($name,array('Think','Org','Behavior','Com','Vendor')) || is_dir(LIB_PATH.$name)){ 
               // Library目录下面的命名空间自动定位
               $path       =   LIB_PATH;
@@ -145,9 +164,23 @@ class Think {
               $namespace  =   C('AUTOLOAD_NAMESPACE');
               $path       =   isset($namespace[$name])? dirname($namespace[$name]).'/' : APP_PATH;
           }
+          /* windows的目录'\'和'/'都可以，但是Linux下只能是'/'。
+           * 同意目录分隔符
+           */
           $filename       =   $path . str_replace('\\', '/', $class) . EXT;
+          /*
+           * is_file——判断给定文件名是否为一个正常的文件。
+           * 参数时文件的路径。
+           */
           if(is_file($filename)) {
               // Win环境下面严格区分大小写
+              // realpath——返回规范化的绝对路径名
+              /*
+               * strpos——查找字符串首次出现的位置
+               * strpos(string $haystack, mixed $needle[, int $offset])
+               * 返回needle在haystack中首次出现的数字位置。
+               * 由于位置是从0开始算的，所以要用强制等于false来判断。
+               */
               if (IS_WIN && false === strpos(str_replace('/', '\\', realpath($filename)), $class . EXT)){
                   return ;
               }
@@ -165,9 +198,23 @@ class Think {
     static public function instance($class,$method='') {
         $identify   =   $class.$method;
         if(!isset(self::$_instance[$identify])) {
+        	/*
+        	 * class_exists——检查类是否已定义
+        	 * 参数是类名。
+        	 */
             if(class_exists($class)){
                 $o = new $class();
+                /*
+                 * method_exists——检查类的方法是否存在
+                 * bool method_exists(mixed $object, string $method)
+                 * 检查类的方法是否存在于指定的object中。
+                 */
                 if(!empty($method) && method_exists($o,$method))
+                	/*
+                	 * call_user_func——把第一个参数作为回调函数调用
+                	 * mixed call_user_func(callable $callback[, mixed $parameter...])
+                	 * 第一个参数callback时被调用的回调函数，其余参数时回调函数的参数。
+                	 */
                     self::$_instance[$identify] = call_user_func(array(&$o, $method));
                 else
                     self::$_instance[$identify] = $o;
@@ -180,12 +227,14 @@ class Think {
 
     /**
      * 自定义异常处理
+     * 将异常放入了保存日志信息的变量中，发送了404的请求头，并输出异常信息。
+     * debug>>>因为halt()中并没有做清除内存中日志信息的操作，会不会导致日志信息变量变的很大？
      * @access public
      * @param mixed $e 异常对象
      */
     static public function appException($e) {
         $error = array();
-        $error['message']   =   $e->getMessage();
+        $error['message']   =   $e->getMessage();	//debug>>>getXXX是自带的方法么？
         $trace              =   $e->getTrace();
         if('E'==$trace[0]['function']) {
             $error['file']  =   $trace[0]['file'];
@@ -218,7 +267,7 @@ class Think {
           case E_CORE_ERROR:
           case E_COMPILE_ERROR:
           case E_USER_ERROR:
-            ob_end_clean();
+            ob_end_clean();	//debug>>>用这是什么意思？
             $errorStr = "$errstr ".$errfile." 第 $errline 行.";
             if(C('LOG_RECORD')) Log::write("[$errno] ".$errorStr,Log::ERR);
             self::halt($errorStr);
@@ -236,6 +285,7 @@ class Think {
     // 致命错误捕获
     static public function fatalError() {
         Log::save();
+        //error_get_last——获取最后发生的错误，是一个关联数组。
         if ($e = error_get_last()) {
             switch($e['type']){
               case E_ERROR:
@@ -252,32 +302,43 @@ class Think {
 
     /**
      * 错误输出
+     * 1.判断是否调试模式、cli模式还是普通模式。
+     * 2.调试模式是使用debug_backtrace()来获取错误的。
+     * 3.正常模式是跳转到ERROR_PAGE，如果没有ERROR_PAGE，就加载TMP_EXCEPTION_FILE，输出错误信息。
      * @param mixed $error 错误
      * @return void
      */
     static public function halt($error) {
         $e = array();
-        if (APP_DEBUG || IS_CLI) {
+        if (APP_DEBUG || IS_CLI) {	//如果是调试模式或者命令行模式。
             //调试模式下输出错误信息
             if (!is_array($error)) {
+            	/*	debug_backtrace——产生一条回溯跟踪。
+            	 * 	返回一个包含众多关联数组的array。
+            	 */
                 $trace          = debug_backtrace();
                 $e['message']   = $error;
                 $e['file']      = $trace[0]['file'];
                 $e['line']      = $trace[0]['line'];
-                ob_start();
+                ob_start();	//打开输出控制缓冲
+                /*
+                 * 	debug_print_backtrace——打印一条回溯
+                 * 	打印一条PHP回溯。它打印了函数调用、被included/required的文件和eval()的代码。
+                 */
                 debug_print_backtrace();
-                $e['trace']     = ob_get_clean();
+                $e['trace']     = ob_get_clean();//得到当前缓冲区的内容并删除当前输出缓冲。
             } else {
                 $e              = $error;
             }
             if(IS_CLI){
+            	//PHP_EOL——'\n'
                 exit($e['message'].PHP_EOL.'FILE: '.$e['file'].'('.$e['line'].')'.PHP_EOL.$e['trace']);
             }
         } else {
             //否则定向到错误页面
             $error_page         = C('ERROR_PAGE');
             if (!empty($error_page)) {
-                redirect($error_page);
+                redirect($error_page);	//TP自定的URL重定向。
             } else {
                 if (C('SHOW_ERROR_MSG'))
                     $e['message'] = is_array($error) ? $error['message'] : $error;

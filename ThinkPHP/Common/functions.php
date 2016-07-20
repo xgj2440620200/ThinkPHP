@@ -15,12 +15,15 @@
 
 /**
  * 获取和设置配置参数 支持批量定义
+ * 将配置信息存放在了静态变量$_config中，所以在项目中是找不到的，只能输出。
+ * 能接收的参数只能是空值、字符串、数组，否则返回null。
+ * 在获取值时，如果没有$_config中没有该单元，默认返回null。
  * @param string|array $name 配置变量
  * @param mixed $value 配置值
  * @param mixed $default 默认值
  * @return mixed
  */
-function C($name=null, $value=null,$default=null) {
+function C($name=null, $value=null,$default=null) {	//因为参数可能的值类型比较多，所以用null带表示默认值。
     static $_config = array();
     // 无参数时获取所有
     if (empty($name)) {
@@ -29,23 +32,40 @@ function C($name=null, $value=null,$default=null) {
     // 优先执行设置获取或赋值
     if (is_string($name)) {
         if (!strpos($name, '.')) {
-            $name = strtolower($name);
-            if (is_null($value))
+            $name = strtolower($name);	//把字符串转化为小写
+            if (is_null($value))	//如果$value是null，就是获取配置参数.
                 return isset($_config[$name]) ? $_config[$name] : $default;
-            $_config[$name] = $value;
+            /*
+             * mine>>>>> if(is_null($value)){
+             * 			return isset($_config[$name] ? : $default;
+             * 		  }
+             * 加了一个花括号，方便阅读和修改；省去了三元预算符的第一个表达式。
+             * 或者>>>>>is_null($value)?  return (isset($_config[$name]) ?  $default) : ($_config[$name] = $value);，
+             * 这种写法可能不方便阅读。
+             */
+            $_config[$name] = $value;	//设置参数
             return;
         }
         // 二维数组设置和获取支持
+        //类似C('USER_TYPE.USER_NAME');
         $name = explode('.', $name);
         $name[0]   =  strtolower($name[0]);
         if (is_null($value))
             return isset($_config[$name[0]][$name[1]]) ? $_config[$name[0]][$name[1]] : $default;
+        	/*mine>>>>>isset($_config[$name[0][$name[1]]) ? : $default;
+        	 * 另一种写法同上
+        	 */
         $_config[$name[0]][$name[1]] = $value;
         return;
     }
-    // 批量设置
+    // 批量设置，是一个关联数组。
+    // 如：$config = array('WEB_SITE_TITLE'=>'ThinkPHP','WEB_SITE_DESCRIPTION'=>'开源PHP框架');
     if (is_array($name)){
-        $_config = array_merge($_config, array_change_key_case($name));
+    	/*
+    	 * array_change_key_case——返回字符串键名全为小写或大写的数组。默认是小写。
+    	 * 如果参数不是一个数组，则返回FALSE。
+    	 */
+        $_config = array_merge($_config, array_change_key_case($name));	//$_config是静态变量。
         return;
     }
     return null; // 避免非法参数
@@ -100,6 +120,7 @@ function G($start,$end='',$dec=4) {
 
 /**
  * 获取和设置语言定义(不区分大小写)
+ * 类似于C()，将信息组成的二维数组保存在静态变量$_lang中，用于获取和设置。
  * @param string|array $name 语言变量
  * @param string $value 语言值
  * @return mixed
@@ -112,7 +133,7 @@ function L($name=null, $value=null) {
     // 判断语言获取(或设置)
     // 若不存在,直接返回全大写$name
     if (is_string($name)) {
-        $name = strtoupper($name);
+        $name = strtoupper($name);	//将字符串转化为大写形式。
         if (is_null($value))
             return isset($_lang[$name]) ? $_lang[$name] : $name;
         $_lang[$name] = $value; // 语言定义
@@ -120,7 +141,7 @@ function L($name=null, $value=null) {
     }
     // 批量定义
     if (is_array($name))
-        $_lang = array_merge($_lang, array_change_key_case($name, CASE_UPPER));
+        $_lang = array_merge($_lang, array_change_key_case($name, CASE_UPPER));	//这里是大写，不同于C()函数。
     return;
 }
 
