@@ -132,13 +132,16 @@ if(!IS_CLI) {
             define('_PHP_FILE_',    rtrim($_SERVER['SCRIPT_NAME'],'/'));
         }
     }
-    if(!defined('__ROOT__')) {
-        $_root  =   rtrim(dirname(_PHP_FILE_),'/');
-        define('__ROOT__',  (($_root=='/' || $_root=='\\')?'':$_root));
+    if(!defined('__ROOT__')) {	//__ROOT__没有定义
+    	//$_root——'//'/ot'
+        $_root  =   rtrim(dirname(_PHP_FILE_),'/');	
+        //__ROOT__——'/ot'
+        define('__ROOT__',  (($_root=='/' || $_root=='\\')?'':$_root));	
     }
 }
 
 // 加载核心Think类
+//CORE_PATH.'Think'.EXT——'D:\WWW\ot\ThinkPHP\Library/Think/Think.class.php'。就是Think.class.php的文件位置。
 require CORE_PATH.'Think'.EXT;
 // 应用初始化 
 Think\Think::start();
