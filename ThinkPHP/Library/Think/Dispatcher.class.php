@@ -17,15 +17,16 @@ class Dispatcher {
 
     /**
      * URL映射到控制器
+     * 通过$_GET、$_POST获取到模块、控制器、方法的值，并将$_GET、$_POST的单元合并赋值给$_REQUEST中。
      * @access public
      * @return void
      */
     static public function dispatch() {
         
-        $varPath        =   C('VAR_PATHINFO');
-        $varModule      =   C('VAR_MODULE');
-        $varController  =   C('VAR_CONTROLLER');
-        $varAction      =   C('VAR_ACTION');
+        $varPath        =   C('VAR_PATHINFO');	//'s'
+        $varModule      =   C('VAR_MODULE');	//'m'
+        $varController  =   C('VAR_CONTROLLER');	//'c'
+        $varAction      =   C('VAR_ACTION');	//'a'
         if(isset($_GET[$varPath])) { // 判断URL里面是否有兼容模式参数
             $_SERVER['PATH_INFO'] = $_GET[$varPath];
             unset($_GET[$varPath]);
@@ -101,7 +102,10 @@ class Dispatcher {
         }
         // 分析PATHINFO信息
         if(!isset($_SERVER['PATH_INFO'])) {
+        	//C('URL_PATHINFO_FETCH')——'ORIG_PATH_INFO,REDIRECT_PATH_INFO,REDIRECT_URL'
+        	//$types = array("ORIG_PATH_INFO", "REDIRECT_PATH_INFO", "REDIRECT_URL");
             $types   =  explode(',',C('URL_PATHINFO_FETCH'));
+            //下面的遍历执行失败
             foreach ($types as $type){
                 if(0===strpos($type,':')) {// 支持函数判断
                     $_SERVER['PATH_INFO'] =   call_user_func(substr($type,1));
@@ -116,12 +120,20 @@ class Dispatcher {
         if(empty($_SERVER['PATH_INFO'])) {
             $_SERVER['PATH_INFO'] = '';
         }
+        //C('URL_PATHINFO_DEPR')——'/'
         $depr = C('URL_PATHINFO_DEPR');
         define('MODULE_PATHINFO_DEPR',  $depr);
-        define('__INFO__',              trim($_SERVER['PATH_INFO'],'/'));
+        //trim——去除字符串首尾处的空白字符或者其他字符。
+        //$_SERVER['PATH_INFO']——''
+        //__INFO__——''
+        define('__INFO__', trim($_SERVER['PATH_INFO'],'/'));
         // URL后缀
+        /*
+         * pathinfo——返回文件路径的信息
+         * pathinfo()返回一个关联数组包含有path的信息。返回关联数组还是字符串取决于optinos.
+         */
+        //__EXT__——''
         define('__EXT__', strtolower(pathinfo($_SERVER['PATH_INFO'],PATHINFO_EXTENSION)));
-
         if (__INFO__ && C('MULTI_MODULE') && !isset($_GET[$varModule])){ // 获取模块
             $paths      =   explode($depr,__INFO__,2);
             $allowList  =   C('MODULE_ALLOW_LIST');
@@ -133,26 +145,41 @@ class Dispatcher {
                 $_SERVER['PATH_INFO'] = __INFO__;
             }
         }else{
+        	//$_SERVER['PATH_INFO']——''
             $_SERVER['PATH_INFO'] = __INFO__;
         }
 
         // URL常量
+        /*
+         * strip_tags——从字符串中去除HTML和PHP标记
+         * 该函数尝试返回给定的字符串str去除空字符、HTML和PHP标记后的结果。
+         * 它使用与函数fgetss()一样的机制去除标记。
+         */
+        //C('URL_REQUEST_URI')——'REQUEST_URI'
+        //$_SERVER[C('URL_REQUEST_URI')]——'/ot/'
+        //__SELF__——'/ot/'
         define('__SELF__',strip_tags($_SERVER[C('URL_REQUEST_URI')]));
-
+        
         // 获取模块名称
+        //MODULE_NAME——'Home'
         define('MODULE_NAME', self::getModule($varModule));
         // 检测模块是否存在
+        //C('MODULE_DENY_LIST')——array('Common', 'User')
         if( MODULE_NAME && (!in_array_case(MODULE_NAME,C('MODULE_DENY_LIST')) || $domainModule ) && is_dir(APP_PATH.MODULE_NAME)){
             
             // 定义当前模块路径
+            //MODULE_PATH——'./Application/Home/'
             define('MODULE_PATH', APP_PATH.MODULE_NAME.'/');
             // 定义当前模块的模版缓存路径
-            C('CACHE_PATH',CACHE_PATH.MODULE_NAME.'/');
+            //CACHE_PATH——'./Runtime/Cache/'，是常量
+            //C('CACHE_PATH')——'./Runtime/Cache/Home/'，是配置
+            C('CACHE_PATH',CACHE_PATH.MODULE_NAME.'/');	
 
             // 加载模块配置文件
             if(is_file(MODULE_PATH.'Conf/config.php'))
                 C(include MODULE_PATH.'Conf/config.php');
             // 加载应用模式对应的配置文件
+            //APP_MODE——'common'
             if('common' != APP_MODE && is_file(MODULE_PATH.'Conf/config_'.APP_MODE.'.php'))
                 C(include MODULE_PATH.'Conf/config_'.APP_MODE.'.php');
 
@@ -171,8 +198,12 @@ class Dispatcher {
             E(L('_MODULE_NOT_EXIST_').':'.MODULE_NAME);
         }
         if(!IS_CLI){
+        	//C('URL_MODEL')——3
+        	//URL_MODEL参数就是用来改变URL模式的。0-普通模式，1-PATHINFO模式，2-REWRITE模式，3-兼容模式
             $urlMode        =   C('URL_MODEL');
+            //URL_COMPAT——3
             if($urlMode == URL_COMPAT ){// 兼容模式判断
+            	//PHP_FILE——'/ot/index.php?s='
                 define('PHP_FILE',_PHP_FILE_.'?'.$varPath.'=');
             }elseif($urlMode == URL_REWRITE ) {
                 $url    =   dirname(_PHP_FILE_);
@@ -183,9 +214,11 @@ class Dispatcher {
                 define('PHP_FILE',_PHP_FILE_);
             }
             // 当前应用地址
+            //__APP__——'/ot/index.php?s='
             define('__APP__',strip_tags(PHP_FILE));
             // 模块URL地址
             $moduleName    =   defined('MODULE_ALIAS')?MODULE_ALIAS:MODULE_NAME;
+            //__MODULE__——'/ot/index.php?s=/home'
             define('__MODULE__',(!empty($domainModule) || !C('MULTI_MODULE'))?__APP__ : __APP__.'/'.(C('URL_CASE_INSENSITIVE') ? strtolower($moduleName) : $moduleName));            
         }
 
@@ -238,17 +271,23 @@ class Dispatcher {
         }
 
         //保证$_REQUEST正常取值
-        $_REQUEST = array_merge($_POST,$_GET);
+        //将$_POST、$_GET合并到$_REQUEST中。
+        $_REQUEST = array_merge($_POST,$_GET);	
     }
 
     /**
      * 获得实际的控制器名称
+     * 使用的是$_GET['c']来获取控制器名称
      * @access private
      * @return string
      */
     static private function getController($var) {
+    	//$var——'c'
+    	//C('DEFAULT_CONTROLLER')——'Index'
+    	//$controller——'Index'
         $controller = (!empty($_GET[$var])? $_GET[$var]:C('DEFAULT_CONTROLLER'));
         unset($_GET[$var]);
+        //C('URL_CONTROLLER_MAP')——''
         if($maps = C('URL_CONTROLLER_MAP')) {
             if(isset($maps[strtolower($controller)])) {
                 // 记录当前别名
@@ -260,9 +299,11 @@ class Dispatcher {
                 return   '';
             }
         }
+        //C('URL_CASE_INSENSITIVE')——1
         if(C('URL_CASE_INSENSITIVE')) {
             // URL地址不区分大小写
             // 智能识别方式 user_type 识别到 UserTypeController 控制器
+            //$controller——'Index'
             $controller = parse_name($controller,1);
         }
         return strip_tags(ucfirst($controller));
@@ -274,10 +315,14 @@ class Dispatcher {
      * @return string
      */
     static private function getAction($var) {
+    	//$var——'a'
+    	//C('DEFAULT_ACTION')——'index'
         $action   = !empty($_POST[$var]) ?
             $_POST[$var] :
             (!empty($_GET[$var])?$_GET[$var]:C('DEFAULT_ACTION'));
+        //mine>>>直接使用I()方法不是更好？
         unset($_POST[$var],$_GET[$var]);
+        //C('URL_ACTION_MAP')——''
         if($maps = C('URL_ACTION_MAP')) {
             if(isset($maps[strtolower(CONTROLLER_NAME)])) {
                 $maps =   $maps[strtolower(CONTROLLER_NAME)];
@@ -308,8 +353,12 @@ class Dispatcher {
      * @return string
      */
     static private function getModule($var) {
+    	//$var——'m'
+    	//C('DEFAULT_MODULE')——'Home'
+        //$module——'Home'
         $module   = (!empty($_GET[$var])?$_GET[$var]:C('DEFAULT_MODULE'));
         unset($_GET[$var]);
+        //C('URL_MODULE_MAP')——''
         if($maps = C('URL_MODULE_MAP')) {
             if(isset($maps[strtolower($module)])) {
                 // 记录当前别名

@@ -347,6 +347,7 @@ function N($key, $step=0,$save=false) {
  * @return string
  */
 function parse_name($name, $type=0) {
+	//$name——'Index'
     if ($type) {
         return ucfirst(preg_replace_callback('/_([a-zA-Z])/', function($match){return strtoupper($match[1]);}, $name));
     } else {
@@ -1245,6 +1246,7 @@ function cookie($name, $value='', $option=null) {
  * @return void
  */
 function load_ext_file($path) {
+	//C('LOAD_EXT_FILE')——输出空值
     // 加载自定义外部文件
     if(C('LOAD_EXT_FILE')) {
         $files      =  explode(',',C('LOAD_EXT_FILE'));
@@ -1253,6 +1255,7 @@ function load_ext_file($path) {
             if(is_file($file)) include $file;
         }
     }
+    //C('LOAD_EXT_CONFIG')——输出空值
     // 加载自定义的动态配置文件
     if(C('LOAD_EXT_CONFIG')) {
         $configs    =  C('LOAD_EXT_CONFIG');

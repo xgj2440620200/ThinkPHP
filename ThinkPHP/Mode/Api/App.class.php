@@ -121,7 +121,6 @@ class App {
      * @return void
      */
     static public function run() {
-
         App::init();
         // Session初始化
         if(!IS_CLI){

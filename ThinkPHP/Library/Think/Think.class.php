@@ -138,7 +138,6 @@ class Think {
           //reuqire在包含运行文件时，如果出错会导致脚本终止。
           require THINK_PATH.'Common/build.php';
       }
-
       // 记录加载文件时间
       G('loadTime');
       // 运行应用
