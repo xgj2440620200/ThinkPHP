@@ -32,28 +32,31 @@ class App {
         define('IS_POST',       REQUEST_METHOD =='POST' ? true : false);
         define('IS_PUT',        REQUEST_METHOD =='PUT' ? true : false);
         define('IS_DELETE',     REQUEST_METHOD =='DELETE' ? true : false);
+        //C('VAR_AJAX_SUBMIT')——'ajax'
         define('IS_AJAX',       ((isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') || !empty($_POST[C('VAR_AJAX_SUBMIT')]) || !empty($_GET[C('VAR_AJAX_SUBMIT')])) ? true : false);
 
         // URL调度结束标签
         Hook::listen('url_dispatch');         
 
         // 日志目录转换为绝对路径
+        //C('LOG_PATH')——'D:\WWW\ot\Runtime\Logs/'
         C('LOG_PATH',realpath(LOG_PATH).'/');
         // TMPL_EXCEPTION_FILE 改为绝对地址
+        //C('TMPL_EXCEPTION_FILE')——'D:\WWW\ot\ThinkPHP\Tpl\think_exception.tpl'
         C('TMPL_EXCEPTION_FILE',realpath(C('TMPL_EXCEPTION_FILE')));
         return ;
     }
 
     /**
      * 执行应用程序
+     * 利用反射找到url中的方法。
      * @access public
      * @return void
      */
     static public function exec() {
-    
         if(!preg_match('/^[A-Za-z](\/|\w)*$/',CONTROLLER_NAME)){ // 安全检测
             $module  =  false;
-        }elseif(C('ACTION_BIND_CLASS')){
+        }elseif(C('ACTION_BIND_CLASS')){ //NULL
             // 操作绑定到类：模块\Controller\控制器\操作
             $layer  =   C('DEFAULT_C_LAYER');
             if(is_dir(MODULE_PATH.$layer.'/'.CONTROLLER_NAME)){
@@ -76,6 +79,7 @@ class App {
             $action  =  'run';
         }else{
             //创建控制器实例
+            //CONTROLLER_NAME——Index
             $module  =  A(CONTROLLER_NAME);                
         }
 
@@ -91,9 +95,11 @@ class App {
                 E(L('_CONTROLLER_NOT_EXIST_').':'.CONTROLLER_NAME);
             }
         }
-
+		//$action——''	
         // 获取当前操作名 支持动态路由
         if(!isset($action)){
+        	//C('ACTION_SUFFIX')——''
+        	//$actino——'index'
             $action    =   ACTION_NAME.C('ACTION_SUFFIX');  
         }
         try{
@@ -102,6 +108,7 @@ class App {
                 throw new \ReflectionException();
             }
             //执行当前操作
+            //$module——''
             $method =   new \ReflectionMethod($module, $action);
             if($method->isPublic() && !$method->isStatic()) {
                 $class  =   new \ReflectionClass($module);
@@ -113,6 +120,7 @@ class App {
                     }
                 }
                 // URL参数绑定检测
+                //C('URL_PARAMS_BIND')——1
                 if($method->getNumberOfParameters()>0 && C('URL_PARAMS_BIND')){
                     switch($_SERVER['REQUEST_METHOD']) {
                         case 'POST':
@@ -174,6 +182,7 @@ class App {
         Hook::listen('app_begin');
         // Session初始化
         if(!IS_CLI){
+        	//C('SESSION_OPTIONS')——NULL。
             session(C('SESSION_OPTIONS'));
         }
         // 记录应用初始化时间

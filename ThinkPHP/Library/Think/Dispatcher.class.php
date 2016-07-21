@@ -12,12 +12,12 @@ namespace Think;
 /**
  * ThinkPHP内置的Dispatcher类
  * 完成URL解析、路由和调度
+ * 通过$_GET、$_POST获取到模块、控制器、方法的值，并将$_GET、$_POST的单元合并赋值给$_REQUEST中。
  */
 class Dispatcher {
 
     /**
      * URL映射到控制器
-     * 通过$_GET、$_POST获取到模块、控制器、方法的值，并将$_GET、$_POST的单元合并赋值给$_REQUEST中。
      * @access public
      * @return void
      */

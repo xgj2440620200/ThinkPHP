@@ -512,6 +512,7 @@ function M($name='', $tablePrefix='',$connection='') {
 
 /**
  * 解析资源地址并导入类库文件
+ * 并没有导入类文件的操作，只是返回了类文件相对模块的路径。
  * 例如 module/controller addon://module/behavior
  * @param string $name 资源地址 格式：[扩展://][模块/]资源名
  * @param string $layer 分层名称
@@ -528,6 +529,8 @@ function parse_res_name($name,$layer,$level=1){
     }else{
         $module =   MODULE_NAME;
     }
+    //$name——'Index'
+    //$array——array('Index');
     $array  =   explode('/',$name);
     $class  =   $module.'\\'.$layer;
     foreach($array as $name){
@@ -537,6 +540,7 @@ function parse_res_name($name,$layer,$level=1){
     if($extend){ // 扩展资源
         $class      =   $extend.'\\'.$class;
     }
+    //$class——'Home\Controller\Index'
     return $class.$layer;
 }
 
@@ -548,15 +552,23 @@ function parse_res_name($name,$layer,$level=1){
  * @return Controller|false
  */
 function A($name,$layer='',$level='') {
+	//$name——'Index'
     static $_action = array();
+    //C('DEFAULT_C_LAYER')——'Controller'
     $layer  =   $layer? $layer : C('DEFAULT_C_LAYER');
+    //C('CONTROLLER_LEVEL')——''
+    //$level——''
     $level  =   $level? $level : ($layer == C('DEFAULT_C_LAYER')?C('CONTROLLER_LEVEL'):1);
-    if(isset($_action[$name.$layer]))
+    //省去花括号不好调试
+    //检测静态常量$_action中是否存储了对应的控制器
+    if(isset($_action[$name.$layer])){
         return $_action[$name.$layer];
+    }
+    //$class——'Home\Controller\IndexController'
     $class  =   parse_res_name($name,$layer,$level);
     if(class_exists($class)) {
         $action             =   new $class();
-        $_action[$name.$layer]     =   $action;
+        $_action[$name.$layer]     =   $action;	//将控制器实例注册到静态变量$_action中
         return $action;
     }else {
         return false;
