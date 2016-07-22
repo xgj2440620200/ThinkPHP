@@ -18,9 +18,8 @@ class IndexController extends HomeController {
 
 	//系统首页
     public function index(){
-
-        $category = D('Category')->getTree();
-        $lists    = D('Document')->lists(null);
+        $category = D('Category')->getTree();	//将select()出来的分类生成一个tree。
+        $lists    = D('Document')->lists(null);//一个select()
 
         $this->assign('category',$category);//栏目
         $this->assign('lists',$lists);//列表

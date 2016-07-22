@@ -176,7 +176,9 @@ function data_auth_sign($data) {
         $data = (array)$data;
     }
     ksort($data); //排序
+    //http_build_query——生成URL-encode之后的请求字符串
     $code = http_build_query($data); //url编码并生成query字符串
+    //sha1——计算字符串的sha1散列值。
     $sign = sha1($code); //生成签名
     return $sign;
 }
@@ -228,7 +230,7 @@ function list_to_tree($list, $pk='id', $pid = 'pid', $child = '_child', $root = 
         // 创建基于主键的数组引用
         $refer = array();
         foreach ($list as $key => $data) {
-            $refer[$data[$pk]] =& $list[$key];
+            $refer[$data[$pk]] =& $list[$key];//debug>>>这里的'&'有什么用？就是在数组前面加个引用？
         }
         foreach ($list as $key => $data) {
             // 判断是否存在parent
@@ -839,8 +841,14 @@ function api($name,$vars=array()){
     $module    = $array? array_pop($array) : 'Common';
     $callback  = $module.'\\Api\\'.$classname.'Api::'.$method;
     if(is_string($vars)) {
+    	/*
+    	 * parse_str——将字符串解析成多个变量
+    	 * parse_str(string $str[, array &$arr])
+    	 * 如果str是URL传入的查询字符串，则将它解析为变量并设置到当前作用域。
+    	 */
         parse_str($vars,$vars);
     }
+    //call_user_func_array——调用一个回调函数，并把一个数组作为参数。
     return call_user_func_array($callback,$vars);
 }
 

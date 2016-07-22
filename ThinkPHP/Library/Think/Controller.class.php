@@ -29,7 +29,7 @@ abstract class Controller {
     protected $config   =   array();
 
    /**
-     * 架构函数 取得模板对象实例
+     * 架构函数 取得模板对象实例,初始化控制器
      * @access public
      */
     public function __construct() {

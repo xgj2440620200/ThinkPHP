@@ -465,19 +465,23 @@ function vendor($class, $baseUrl = '', $ext='.php') {
 
 /**
  * D函数用于实例化模型类 格式 [资源://][模块/]模型
+ * 如果静态变量$_model中有对应模型的对象，就不用直接返回该对象。
  * @param string $name 资源地址
  * @param string $layer 模型层名称
  * @return Model
  */
 function D($name='',$layer='') {
+	//如果$name没有传入值，就是M()方法的作用，实例化Think\Model类。
     if(empty($name)) return new Think\Model;
     static $_model  =   array();
+    //C('DEFAULT_M_LAYER')——'Model'
     $layer          =   $layer? $layer : C('DEFAULT_M_LAYER');
-    if(isset($_model[$name.$layer]))
+    if(isset($_model[$name.$layer]))//检测是否有对应的模型
         return $_model[$name.$layer];
+    //$class——'Home\Model\CategoryModel'
     $class          =   parse_res_name($name,$layer);
     if(class_exists($class)) {
-        $model      =   new $class(basename($name));
+        $model      =   new $class(basename($name));//$name，这个参数传进去并没有什么用
     }elseif(false === strpos($name,'/')){
         // 自动加载公共模块下面的模型
         $class      =   '\\Common\\'.$layer.'\\'.$name.$layer;
@@ -486,6 +490,7 @@ function D($name='',$layer='') {
         Think\Log::record('D方法实例化没找到模型类'.$class,Think\Log::NOTICE);
         $model      =   new Think\Model(basename($name));
     }
+    //将Category类实例注册到$model中，避免重复实例化
     $_model[$name.$layer]  =  $model;
     return $model;
 }
@@ -541,6 +546,7 @@ function parse_res_name($name,$layer,$level=1){
         $class      =   $extend.'\\'.$class;
     }
     //$class——'Home\Controller\Index'
+    //$class.$layer——'Home\Controller\IndexController'
     return $class.$layer;
 }
 

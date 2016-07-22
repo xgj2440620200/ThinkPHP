@@ -309,6 +309,9 @@ class DocumentModel extends Model{
 
 	/**
 	 * 设置where查询条件
+	 * 查询条件包括：
+	 * 	给出默认值：status、pid、create_time、deadline
+	 *  其他:category_id(支持数字或者用逗号隔开的字符串）、
 	 * @param  number  $category 分类ID
 	 * @param  number  $pos      推荐位
 	 * @param  integer $status   状态
@@ -323,18 +326,17 @@ class DocumentModel extends Model{
 			if(is_numeric($category)){
 				$map['category_id'] = $category;
 			} else {
-				$map['category_id'] = array('in', str2arr($category));
+				$map['category_id'] = array('in', str2arr($category));	//str2arr实际上是封装好的explode()
 			}
 		}
 
-		$map['create_time'] = array('lt', NOW_TIME);
-		$map['_string']     = 'deadline = 0 OR deadline > ' . NOW_TIME;
+		$map['create_time'] = array('lt', NOW_TIME);	//文档定时上线。
+		$map['_string']     = 'deadline = 0 OR deadline > ' . NOW_TIME;	//获取有效文档而不是过期的。
 
 		/* 设置推荐位 */
 		if(is_numeric($pos)){
-			$map[] = "position & {$pos} = {$pos}";
+			$map[] = "position & {$pos} = {$pos}";	//TP这种写法？
 		}
-
 		return $map;
 	}
 
