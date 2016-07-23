@@ -35,6 +35,7 @@ class Hook {
 
     /**
      * 批量导入插件
+     * 实际上是给属性$tags添加标签单元，每个标签是以标签位置为键名，行为类命名空间为单元组成的数组。
      * @param array $data 插件信息
      * @param boolean $recursive 是否递归合并
      * @return void
@@ -44,7 +45,19 @@ class Hook {
             self::$tags   =   array_merge(self::$tags,$data);
         }else{ // 合并导入
             foreach ($data as $tag=>$val){
+            		/*
+            		 * $tag>>>标签位置
+            		 * $val>>>对应的行为类的命名空间
+            		 */
                 if(!isset(self::$tags[$tag]))
+                	/*self::$tags追加的标签有>>>'
+                	 * app_begin
+                	 * app_end
+                	 * view_parse
+                	 * template_filter
+                	 * view_filter
+                	 * app_init 
+                	 */
                     self::$tags[$tag]   =   array();            
                 if(!empty($val['_overlay'])){
                     // 可以针对某个标签指定覆盖模式
@@ -54,7 +67,37 @@ class Hook {
                     // 合并模式
                     self::$tags[$tag]   =   array_merge(self::$tags[$tag],$val);
                 }
-            }            
+            }
+            /*
+             * $tags>>>
+             * 	array(5) {
+				  ["app_begin"]=>
+				  array(1) {
+				    [0]=>
+				    string(22) "Behavior\ReadHtmlCache"
+				  }
+				  ["app_end"]=>
+				  array(1) {
+				    [0]=>
+				    string(22) "Behavior\ShowPageTrace"
+				  }
+				  ["view_parse"]=>
+				  array(1) {
+				    [0]=>
+				    string(22) "Behavior\ParseTemplate"
+				  }
+				  ["template_filter"]=>
+				  array(1) {
+				    [0]=>
+				    string(23) "Behavior\ContentReplace"
+				  }
+				  ["view_filter"]=>
+				  array(1) {
+				    [0]=>
+				    string(23) "Behavior\WriteHtmlCache"
+				  }
+				}
+             */
         }
     }
 
@@ -79,13 +122,20 @@ class Hook {
      * @return void
      */
     static public function listen($tag, &$params=NULL) {
+    		if($tag == 'view_parse'){
+    			exit('test');
+    		} 
+    		//$params>>>NULL
+    		//$tag>>>'app_init'
         if(isset(self::$tags[$tag])) {
             if(APP_DEBUG) {
                 G($tag.'Start');
                 trace('[ '.$tag.' ] --START--','','INFO');
             }
+            //self::$tags[$tag]>>>array('Common\Behavior\InitHook')
             foreach (self::$tags[$tag] as $name) {
                 APP_DEBUG && G($name.'_start');
+                //$name>>>'Common\Behavior\InitHook'
                 $result =   self::exec($name, $tag,$params);
                 if(APP_DEBUG){
                     G($name.'_end');
@@ -111,6 +161,8 @@ class Hook {
      * @return void
      */
     static public function exec($name, $tag,&$params=NULL) {
+    		//$name>>>'Common\Behavior\InitHook'
+    		//$tab>>>'app_init'
         if(false === strpos($name,'\\')) {
             // 插件（多个入口）
             $class   =  "Addons\\{$name}\\{$name}Addon";
@@ -119,6 +171,7 @@ class Hook {
             $class   =  $name.'Behavior';
             $tag    =   'run';
         }
+        //$addon>>>object(Common\Behavior\InitHookBehavior)
         $addon   = new $class();
         return $addon->$tag($params);
     }

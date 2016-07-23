@@ -78,6 +78,7 @@ class View {
 
     /**
      * 输出内容文本可以包括Html
+     * 设置请求头的Content-type/charset/Cache-control, 输出模板文件。
      * @access private
      * @param string $content 输出内容
      * @param string $charset 模板输出字符集
@@ -85,10 +86,13 @@ class View {
      * @return mixed
      */
     private function render($content,$charset='',$contentType=''){
+    		//C('DEFAULT_CHARSET')——'utf-8'
         if(empty($charset))  $charset = C('DEFAULT_CHARSET');
+        //C('TMPL_CONTENT_TYPE')——'text/html'
         if(empty($contentType)) $contentType = C('TMPL_CONTENT_TYPE');
         // 网页字符编码
         header('Content-Type:'.$contentType.'; charset='.$charset);
+        //C('HTTP_CACHE_CONTROL')——'private'
         header('Cache-control: '.C('HTTP_CACHE_CONTROL'));  // 页面缓存控制
         header('X-Powered-By:ThinkPHP');
         // 输出模板文件
