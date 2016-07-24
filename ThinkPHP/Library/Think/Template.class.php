@@ -73,12 +73,16 @@ class  Template {
      */
     public function fetch($templateFile,$templateVar,$prefix='') {
         $this->tVar         =   $templateVar;
+        //TODO
         $templateCacheFile  =   $this->loadTemplate($templateFile,$prefix);
         Storage::load($templateCacheFile,$this->tVar,null,'tpl');
     }
 
     /**
      * 加载主模板并缓存
+     * 读取模板文件内容用的是file_get_content()。
+     * 模板文件的缓存路径是：缓存路径＋前缀＋md5加密的模板文件完成路径名＋缓存后缀（'.php')
+     * 编译模板内容
      * @access public
      * @param string $tmplTemplateFile 模板文件
      * @param string $prefix 模板标识前缀
@@ -86,17 +90,21 @@ class  Template {
      * @throws ThinkExecption
      */
     public function loadTemplate ($tmplTemplateFile,$prefix='') {
+    		//$tmplTemplateFile>>>'./Application/Home/View/default/Index/index.html'
         if(is_file($tmplTemplateFile)) {
             $this->templateFile    =  $tmplTemplateFile;
             // 读取模板文件内容
-            $tmplContent =  file_get_contents($tmplTemplateFile);
+            $tmplContent =  file_get_contents($tmplTemplateFile); //输出的index.html内容没有样式。
         }else{
             $tmplContent =  $tmplTemplateFile;
         }
          // 根据模版文件名定位缓存文件
+         //$this->config['cache_path']>>>'./Runtime/Cache/Home/'
+         //$this->config['cache_suffix']>>>'.php'
         $tmplCacheFile = $this->config['cache_path'].$prefix.md5($tmplTemplateFile).$this->config['cache_suffix'];
 
         // 判断是否启用布局
+        //C('LAYOUT_ON')>>>none
         if(C('LAYOUT_ON')) {
             if(false !== strpos($tmplContent,'{__NOLAYOUT__}')) { // 可以单独定义不使用布局
                 $tmplContent = str_replace('{__NOLAYOUT__}','',$tmplContent);
@@ -106,6 +114,7 @@ class  Template {
             }
         }
         // 编译模板内容
+        //TODO
         $tmplContent =  $this->compiler($tmplContent);
         Storage::put($tmplCacheFile,trim($tmplContent),'tpl');
         return $tmplCacheFile;
@@ -113,12 +122,14 @@ class  Template {
 
     /**
      * 编译模板文件内容
+     * 模板解析
      * @access protected
      * @param mixed $tmplContent 模板内容
      * @return string
      */
     protected function compiler($tmplContent) {
         //模板解析
+        //TODO
         $tmplContent =  $this->parse($tmplContent);
         // 还原被替换的Literal标签
         $tmplContent =  preg_replace_callback('/<!--###literal(\d+)###-->/is', array($this, 'restoreLiteral'), $tmplContent);
@@ -139,11 +150,16 @@ class  Template {
      * @return string
      */
     public function parse($content) {
+    		//$content>>>就是index.html文件中的内容。此时是包含有模板标签的。
         // 内容为空不解析
         if(empty($content)) return '';
-        $begin      =   $this->config['taglib_begin'];
-        $end        =   $this->config['taglib_end'];
+        //获取模板标签的默认开始标识和结束标识。
+        //$this->config['taglib_begin']>>>'<'
+        $begin      =   $this->config['taglib_begin']; //'<'
+        //$this->config['taglib_end']>>>'>'
+        $end        =   $this->config['taglib_end']; //'>'
         // 检查include语法
+        //TODO
         $content    =   $this->parseInclude($content);
         // 检查PHP语法
         $content    =   $this->parsePhp($content);
@@ -222,6 +238,7 @@ class  Template {
         if($extend)
             $content    =   $this->parseExtend($content);
         // 解析布局
+        //TODO
         $content    =   $this->parseLayout($content);
         // 读取模板中的include标签
         $find       =   preg_match_all('/'.$this->config['taglib_begin'].'include\s(.+?)\s*?\/'.$this->config['taglib_end'].'/is',$content,$matches);
@@ -237,21 +254,31 @@ class  Template {
         return $content;
     }
 
-    // 解析模板中的extend标签
+    // 解析模板中的extend标签,替换block标签
+    /*
+     * 1.获取模板标签的开始标识和结束标识
+     * 2.用preg_match()读取模板中的继承标签，正则表达式规定了模板标签开始标志符后立刻接标签名；否则，会导致获取不到extend标签，
+     * 3.替换extend标签，读取继承模板的内容，替换block标签
+     */
     protected function parseExtend($content) {
         $begin      =   $this->config['taglib_begin'];
         $end        =   $this->config['taglib_end'];        
         // 读取模板中的继承标签
-        $find       =   preg_match('/'.$begin.'extend\s(.+?)\s*?\/'.$end.'/is',$content,$matches);
+        //i>>>不区分大小写；s>>>正则表达式中'.'匹配所有字符，包括换行符；\s>>>匹配空白符；
+        //这个正则表达式规定了开始标签后面必须紧接标签名
+        $find       =   preg_match('/'.$begin.'extend\s(.+?)\s*?\/'.$end.'/is',$content,$matches); //返回匹配的次数
         if($find) {
-            //替换extend标签
+            //替换extend标签,替换为''
+            //$matches[0]>>>'<extend name="Base/common"/>'
             $content    =   str_replace($matches[0],'',$content);
             // 记录页面中的block标签
+            //匹配的是一个完成的block标签，包括<block name=''>……</block>，即开关标签。
             preg_replace_callback('/'.$begin.'block\sname=[\'"](.+?)[\'"]\s*?'.$end.'(.*?)'.$begin.'\/block'.$end.'/is', array($this, 'parseBlock'),$content);
             // 读取继承模板
             $array      =   $this->parseXmlAttrs($matches[1]);
+            //$array = array('name' => 'Base/common')
             $content    =   $this->parseTemplateName($array['name']);
-            $content    =   $this->parseInclude($content, false); //对继承模板中的include进行分析
+            $content    =   $this->parseInclude($content, false); //对继承模板中的include进行分析。说明，不能迭代继承。
             // 替换block标签
             $content = $this->replaceBlock($content);
         }else{
@@ -262,17 +289,33 @@ class  Template {
 
     /**
      * 分析XML属性
+     * 将属性字符串转换成了关联数组，用字符串中的俄属性作为索引，属性值作为值。
+     * 就是将'name="Base/common"'转换成了array('name' => 'Base/common')
+     * 1.使用simplexml_load_string()返回一个simpleXMLElement对象
+     * 2.使用此对象的attributes()方法来识别属性值，并返回值，使用(array)强制将返回值转换成数组形式
+     * 3.获取返回数组中的'@attributes'的单元（数组），并将数组的键名转换成小写
+     * 4.返回数组
      * @access private
      * @param string $attrs  XML属性字符串
      * @return array
      */
     private function parseXmlAttrs($attrs) {
+    		//$attrs>>>'name="Base/common"'
         $xml        =   '<tpl><tag '.$attrs.' /></tpl>';
+        /*
+         * simplexml_load_string——把XML字符串载入对象中
+         * 如果失败，返回false。
+         * 返回类SimpleXMLElement的一个对象，该对象的属性包含XML文档中的数据。如果失败，则返回false。
+         */
         $xml        =   simplexml_load_string($xml);
         if(!$xml)
-            E(L('_XML_TAG_ERROR_'));
-        $xml        =   (array)($xml->tag->attributes());
+            E(L('_XML_TAG_ERROR_')); //'XML标签语法错误'
+        //attributes()是SimpleXMLElement中的一个方法，用于识别一个元素的属性
+        //$xml>>>array(["@attributes"]=> array("name"=> "Base/common")) 
+        $xml        =   (array)($xml->tag->attributes()); 
+        //array_change_key_case——将数组中的所有键名改为全大写或小写，并返回改变后的数组。
         $array      =   array_change_key_case($xml['@attributes']);
+        //$array = array('name' => 'Base/common');
         return $array;
     }
 
@@ -309,15 +352,41 @@ class  Template {
 
     /**
      * 记录当前页面中的block标签
+     * 获取传过来的block数组中单元作为name属性和block内容，形成一个键值存放到Template的block属性中。
      * @access private
      * @param string $name block名称
      * @param string $content  模板内容
      * @return string
      */
     private function parseBlock($name,$content = '') {
+    		/*
+    		 * $name>>>
+    		 * 	array(3) {
+					  [0]=>
+					  string(241) "<block name="header">
+					    <header class="jumbotron subhead" id="overview">
+					        <div class="container">
+					            <h2>源自相同起点，演绎不同精彩！</h2>
+					            <p class="lead"></p>
+					        </div>
+					    </header>
+					</block>"
+					  [1]=>
+					  string(6) "header"
+					  [2]=>
+					  string(212) "
+					    <header class="jumbotron subhead" id="overview">
+					        <div class="container">
+					            <h2>源自相同起点，演绎不同精彩！</h2>
+					            <p class="lead"></p>
+					        </div>
+					    </header>
+					"
+					}
+    		 */
         if(is_array($name)){
-            $content = $name[2];
-            $name    = $name[1];
+            $content = $name[2]; //block中的内容
+            $name    = $name[1]; //block的name属性
         }
         $this->block[$name]  =   $content;
         return '';
@@ -325,19 +394,20 @@ class  Template {
 
     /**
      * 替换继承模板中的block标签
+     * 使用了preg_replace_callback迭代replaceBlock这个方法来处理嵌套的block标签，达到去除block标签的作用
      * @access private
      * @param string $content  模板内容
      * @return string
      */
     private function replaceBlock($content){
-        static $parse = 0;
+        static $parse = 0; //声明了是否嵌套的静态变量
         $begin = $this->config['taglib_begin'];
         $end   = $this->config['taglib_end'];
         $reg   = '/('.$begin.'block\sname=[\'"](.+?)[\'"]\s*?'.$end.')(.*?)'.$begin.'\/block'.$end.'/is';
         if(is_string($content)){
             do{
-                $content = preg_replace_callback($reg, array($this, 'replaceBlock'), $content);
-            } while ($parse && $parse--);
+                $content = preg_replace_callback($reg, array($this, 'replaceBlock'), $content); //这里执行真正的block标签替换操作，用对应内容替换。
+            } while ($parse && $parse--); //1-存在嵌套，进一步解析；0-没有嵌套了。
             return $content;
         } elseif(is_array($content)){
             if(preg_match('/'.$begin.'block\sname=[\'"](.+?)[\'"]\s*?'.$end.'/is', $content[3])){ //存在嵌套，进一步解析
@@ -676,20 +746,25 @@ class  Template {
 
     /**
      * 分析加载的模板文件并读取内容 支持多个模板文件读取
+     * 通过模板名获取到模板文件路径，用file_get_content()获取模板的内容，并返回。
      * @access private
      * @param string $tmplPublicName  模板文件名
      * @return string
      */    
     private function parseTemplateName($templateName){
+    		//$templateName>>>'Base/common'
         if(substr($templateName,0,1)=='$')
             //支持加载变量文件名
             $templateName = $this->get(substr($templateName,1));
+        //$array=array('Base/common/')
         $array  =   explode(',',$templateName);
-        $parseStr   =   ''; 
+        $parseStr   =   ''; //初始化为空字符串
+        //$this->config['template_suffix']>>>'.html'
         foreach ($array as $templateName){
             if(empty($templateName)) continue;
             if(false === strpos($templateName,$this->config['template_suffix'])) {
                 // 解析规则为 模块@主题/控制器/操作
+                //./Application/Home/View/default/Base/common.html
                 $templateName   =   T($templateName);
             }
             // 获取模板文件内容

@@ -18,9 +18,198 @@ class ParseTemplateBehavior {
 
     // 行为扩展的执行入口必须是run
     public function run(&$_data){
-        $engine             =   strtolower(C('TMPL_ENGINE_TYPE'));
-        $_content           =   empty($_data['content'])?$_data['file']:$_data['content'];
-        $_data['prefix']    =   !empty($_data['prefix'])?$_data['prefix']:C('TMPL_CACHE_PREFIX');
+    		//C('TMPL_ENGINE_TYPE')——'Think'
+    		/*
+    		 * $_data>>>
+    		 * 	array(4) {
+			  ["var"]=>
+			  array(3) {
+			    ["category"]=>
+			    array(1) {
+			      [0]=>
+			      array(27) {
+			        ["id"]=>
+			        string(1) "1"
+			        ["name"]=>
+			        string(4) "blog"
+			        ["title"]=>
+			        string(6) "博客"
+			        ["pid"]=>
+			        string(1) "0"
+			        ["sort"]=>
+			        string(1) "0"
+			        ["list_row"]=>
+			        string(2) "10"
+			        ["meta_title"]=>
+			        string(0) ""
+			        ["keywords"]=>
+			        string(0) ""
+			        ["description"]=>
+			        string(0) ""
+			        ["template_index"]=>
+			        string(0) ""
+			        ["template_lists"]=>
+			        string(0) ""
+			        ["template_detail"]=>
+			        string(0) ""
+			        ["template_edit"]=>
+			        string(0) ""
+			        ["model"]=>
+			        string(1) "2"
+			        ["type"]=>
+			        string(3) "2,1"
+			        ["link_id"]=>
+			        string(1) "0"
+			        ["allow_publish"]=>
+			        string(1) "0"
+			        ["display"]=>
+			        string(1) "1"
+			        ["reply"]=>
+			        string(1) "0"
+			        ["check"]=>
+			        string(1) "0"
+			        ["reply_model"]=>
+			        string(1) "1"
+			        ["extend"]=>
+			        string(0) ""
+			        ["create_time"]=>
+			        string(10) "1379474947"
+			        ["update_time"]=>
+			        string(10) "1382701539"
+			        ["status"]=>
+			        string(1) "1"
+			        ["icon"]=>
+			        string(1) "0"
+			        ["_"]=>
+			        array(1) {
+			          [0]=>
+			          array(26) {
+			            ["id"]=>
+			            string(1) "2"
+			            ["name"]=>
+			            string(12) "default_blog"
+			            ["title"]=>
+			            string(12) "默认分类"
+			            ["pid"]=>
+			            string(1) "1"
+			            ["sort"]=>
+			            string(1) "1"
+			            ["list_row"]=>
+			            string(2) "10"
+			            ["meta_title"]=>
+			            string(0) ""
+			            ["keywords"]=>
+			            string(0) ""
+			            ["description"]=>
+			            string(0) ""
+			            ["template_index"]=>
+			            string(0) ""
+			            ["template_lists"]=>
+			            string(0) ""
+			            ["template_detail"]=>
+			            string(0) ""
+			            ["template_edit"]=>
+			            string(0) ""
+			            ["model"]=>
+			            string(1) "2"
+			            ["type"]=>
+			            string(5) "2,1,3"
+			            ["link_id"]=>
+			            string(1) "0"
+			            ["allow_publish"]=>
+			            string(1) "1"
+			            ["display"]=>
+			            string(1) "1"
+			            ["reply"]=>
+			            string(1) "0"
+			            ["check"]=>
+			            string(1) "1"
+			            ["reply_model"]=>
+			            string(1) "1"
+			            ["extend"]=>
+			            string(0) ""
+			            ["create_time"]=>
+			            string(10) "1379475028"
+			            ["update_time"]=>
+			            string(10) "1386839751"
+			            ["status"]=>
+			            string(1) "1"
+			            ["icon"]=>
+			            string(2) "31"
+			          }
+			        }
+			      }
+			    }
+			    ["lists"]=>
+			    array(1) {
+			      [0]=>
+			      array(23) {
+			        ["id"]=>
+			        string(1) "1"
+			        ["uid"]=>
+			        string(1) "1"
+			        ["name"]=>
+			        string(0) ""
+			        ["title"]=>
+			        string(26) "OneThink1.0正式版发布"
+			        ["category_id"]=>
+			        string(1) "2"
+			        ["description"]=>
+			        string(38) "大家期待的OneThink正式版发布"
+			        ["root"]=>
+			        string(1) "0"
+			        ["pid"]=>
+			        string(1) "0"
+			        ["model_id"]=>
+			        string(1) "2"
+			        ["type"]=>
+			        string(1) "2"
+			        ["position"]=>
+			        string(1) "0"
+			        ["link_id"]=>
+			        string(1) "0"
+			        ["cover_id"]=>
+			        string(1) "0"
+			        ["display"]=>
+			        string(1) "1"
+			        ["deadline"]=>
+			        string(1) "0"
+			        ["attach"]=>
+			        string(1) "0"
+			        ["view"]=>
+			        string(1) "9"
+			        ["comment"]=>
+			        string(1) "0"
+			        ["extend"]=>
+			        string(1) "0"
+			        ["level"]=>
+			        string(1) "0"
+			        ["create_time"]=>
+			        string(10) "1387260660"
+			        ["update_time"]=>
+			        string(10) "1387263112"
+			        ["status"]=>
+			        string(1) "1"
+			      }
+			    }
+			    ["page"]=>
+			    string(0) ""
+			  }
+			  ["file"]=>
+			  string(48) "./Application/Home/View/default/Index/index.html"
+			  ["content"]=>
+			  string(0) ""
+			  ["prefix"]=>
+			  string(0) ""
+			}
+
+    		 */
+        $engine   =   strtolower(C('TMPL_ENGINE_TYPE')); //'think'
+        //$_data['file']>>>'./Application/Home/View/default/Index/index.html'
+        $_content  =   empty($_data['content'])?$_data['file']:$_data['content'];
+        //C('TMPL_CACHE_PREFIX')>>>''
+        //$_data['prefix']>>>''，前缀
+        $_data['prefix']   =  !empty($_data['prefix'])?$_data['prefix']:C('TMPL_CACHE_PREFIX');
         if('think'==$engine){ // 采用Think模板引擎
             if((!empty($_data['content']) && $this->checkContentCache($_data['content'],$_data['prefix'])) 
                 ||  $this->checkCache($_data['file'],$_data['prefix'])) { // 缓存有效
@@ -29,6 +218,8 @@ class ParseTemplateBehavior {
             }else{
                 $tpl = Think::instance('Think\\Template');
                 // 编译并加载模板文件
+                //$_data['var'］>>> NULL
+                //TODO
                 $tpl->fetch($_content,$_data['var'],$_data['prefix']);
             }
         }else{

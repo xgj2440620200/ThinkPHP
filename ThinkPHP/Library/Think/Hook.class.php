@@ -123,7 +123,18 @@ class Hook {
      */
     static public function listen($tag, &$params=NULL) {
     		if($tag == 'view_parse'){
-    			exit('test');
+    			if(isset(self::$tags[$tag])){
+    				if(APP_DEBUG){
+    					G($tag.'Start');
+    					trace('['.$tag.']--START--','','INFO');
+    				}
+    				foreach(self::$tags[$tag] as $name){
+    					APP_DEBUG && G($name.'_start');
+    					//$name>>>'Behavior\ParseTemplate'
+    					//$tag>>>'view_parse';
+    					$result = self::exec($name, $tag, $params);
+    				}
+    			}
     		} 
     		//$params>>>NULL
     		//$tag>>>'app_init'
@@ -155,6 +166,7 @@ class Hook {
 
     /**
      * 执行某个插件
+     * 就是是实例化某个行为类,并调用$tag对应的方法。如果$name中没有出现'\',就默认$tag为'run'
      * @param string $name 插件名称
      * @param string $tag 方法名（标签名）     
      * @param Mixed $params 传入的参数
@@ -162,7 +174,7 @@ class Hook {
      */
     static public function exec($name, $tag,&$params=NULL) {
     		//$name>>>'Common\Behavior\InitHook'
-    		//$tab>>>'app_init'
+    		//$tag>>>'app_init'
         if(false === strpos($name,'\\')) {
             // 插件（多个入口）
             $class   =  "Addons\\{$name}\\{$name}Addon";

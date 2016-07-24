@@ -180,37 +180,48 @@ function compile($filename) {
 
 /**
  * 获取模版文件 格式 资源://模块@主题/控制器/操作
+ * 通过规定的格式来获取模板文件的路径
  * @param string $name 模版资源地址
  * @param string $layer 视图层（目录）名称
  * @return string
  */
 function T($template='',$layer=''){
-
+	//$template='Base/common'
     // 解析模版资源地址
     if(false === strpos($template,'://')){
+    		//$template='http://Base/common'
         $template   =   'http://'.str_replace(':', '/',$template);
     }
-    $info   =   parse_url($template);
-    $file   =   $info['host'].(isset($info['path'])?$info['path']:'');
-    $module =   isset($info['user'])?$info['user'].'/':MODULE_NAME.'/';
-    $extend =   $info['scheme'];
+    /*
+     * $info = array(
+     * 	'scheme' => 'http',
+     * 	'host' => 'Base',
+     * 	'path' => '/common'	
+     * )
+     */
+    $info   =   parse_url($template); //解析url，返回其组成部分。
+    $file   =   $info['host'].(isset($info['path'])?$info['path']:''); //'Base/common'
+    $module =   isset($info['user'])?$info['user'].'/':MODULE_NAME.'/'; //'Home/'
+    $extend =   $info['scheme']; //'http'
     $layer  =   $layer?$layer:C('DEFAULT_V_LAYER');
 
     // 获取当前主题的模版路径
-    $auto   =   C('AUTOLOAD_NAMESPACE');
+    $auto   =   C('AUTOLOAD_NAMESPACE'); //array('Addons' => './Addons/')
     if($auto && isset($auto[$extend])){ // 扩展资源
         $baseUrl    =   $auto[$extend].$module.$layer.'/';
     }elseif(C('VIEW_PATH')){ // 指定视图目录
         $baseUrl    =   C('VIEW_PATH').$module.'/';
     }else{
+    		//$baseUrl = '/Application/Home/View/'
         $baseUrl    =   APP_PATH.$module.$layer.'/';
     }
 
     // 获取主题
-    $theme  =   substr_count($file,'/')<2 ? C('DEFAULT_THEME') : '';
+    //substr_count——计算字符串出现的次数。
+    $theme  =   substr_count($file,'/')<2 ? C('DEFAULT_THEME') : ''; //这个是格式规定的。小于2是没有指定主题
 
     // 分析模板文件规则
-    $depr   =   C('TMPL_FILE_DEPR');
+    $depr   =   C('TMPL_FILE_DEPR'); //'/'
     if('' == $file) {
         // 如果模板文件名为空 按照默认规则定位
         $file = CONTROLLER_NAME . $depr . ACTION_NAME;
@@ -223,6 +234,7 @@ function T($template='',$layer=''){
             $file   =   str_replace('/', $depr, $file);
         }
     }
+    	//'./Application/Home/View/default/Base/common.html'
     return $baseUrl.($theme?$theme.'/':'').$file.C('TMPL_TEMPLATE_SUFFIX');
 }
 
