@@ -238,14 +238,30 @@ class  Template {
         if($extend)
             $content    =   $this->parseExtend($content);
         // 解析布局
-        //TODO
-        $content    =   $this->parseLayout($content);
+        $content    =   $this->parseLayout($content); //没有使用模板布局，返回的是none
         // 读取模板中的include标签
         $find       =   preg_match_all('/'.$this->config['taglib_begin'].'include\s(.+?)\s*?\/'.$this->config['taglib_end'].'/is',$content,$matches);
+        //$find=4
+        /*
+         * $matches = array(
+         * 	array(	
+         * 		'<include file="Public/head"/>',
+         * 	    '<include file="Public/header"/>',
+         * 		'<include file="Public/body"/>',
+         * 		'<include file="Public/footer"/>
+         * 	),
+         * 	array(
+         * 		'file="Public/head"',
+         * 		'file="Public/header"',
+         * 		'file="Public/body"',
+         * 		'file="Public/footer"'
+         * 	)
+         */
         if($find) {
             for($i=0;$i<$find;$i++) {
                 $include    =   $matches[1][$i];
                 $array      =   $this->parseXmlAttrs($include);
+                var_dump($array);exit; //TODO
                 $file       =   $array['file'];
                 unset($array['file']);
                 $content    =   str_replace($matches[0][$i],$this->parseIncludeItem($file,$array,$extend),$content);
