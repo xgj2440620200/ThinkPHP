@@ -159,11 +159,10 @@ class  Template {
         //$this->config['taglib_end']>>>'>'
         $end        =   $this->config['taglib_end']; //'>'
         // 检查include语法
-        //TODO
         $content    =   $this->parseInclude($content);
         // 检查PHP语法
         $content    =   $this->parsePhp($content);
-        // 首先替换literal标签内容
+        // 首先替换literal标签内容。literal标签用来防止模板标签被解析，让literal中的内容原样输出。
         $content    =   preg_replace_callback('/'.$begin.'literal'.$end.'(.*?)'.$begin.'\/literal'.$end.'/is', array($this, 'parseLiteral'),$content);
 
         // 获取需要引入的标签库列表
@@ -171,7 +170,8 @@ class  Template {
         // 一般放在文件的最前面
         // 格式：<taglib name="html,mytag..." />
         // 当TAGLIB_LOAD配置为true时才会进行检测
-        if(C('TAGLIB_LOAD')) {
+        //C('TAGLIB_LOAD')>>>true。是否使用内置标签库外的其他标签库。默认是true
+        if(C('TAGLIB_LOAD')) { //一般情况下没有使用其他标签库中的标签。
             $this->getIncludeTagLib($content);
             if(!empty($this->tagLib)) {
                 // 对导入的TagLib进行解析
@@ -181,6 +181,7 @@ class  Template {
             }
         }
         // 预先加载的标签库 无需在每个模板中使用taglib标签加载 但必须使用标签库XML前缀
+        //C('TAGLIB_PRE_LOAD')>>>''。需要预先加载的额外标签库，用逗号分开。
         if(C('TAGLIB_PRE_LOAD')) {
             $tagLibs =  explode(',',C('TAGLIB_PRE_LOAD'));
             foreach ($tagLibs as $tag){
@@ -188,8 +189,13 @@ class  Template {
             }
         }
         // 内置标签库 无需使用taglib标签导入就可以使用 并且不需使用标签库XML前缀
-        $tagLibs =  explode(',',C('TAGLIB_BUILD_IN'));
+        //C('tABLIB_BUILD_IN')>>>'cx'。内置标签库名称，默认是'cx'，如果用多个，用逗号隔开。
+        $tagLibs =  explode(',',C('TAGLIB_BUILD_IN')); //多个内置标签库的名称需要逗号隔开。
+        /*
+         * $tagLibs = array('cx')
+         */
         foreach ($tagLibs as $tag){
+        		//TODO
             $this->parseTagLib($tag,$content,true);
         }
         //解析普通模板标签 {tagName}
@@ -198,12 +204,19 @@ class  Template {
     }
 
     // 检查PHP语法
+    /*
+     * 1.检查短标记配置，如果有替换成'<?php echo '\1'; ?>'."\n"
+     * 2.检查默认模板引擎是否禁用PHP原生代码，如果是就继续检查模板中是否有'<?php'，有则报错
+     * 3.返回替换段标记和PHP语法检查后的模板内容。
+     */
     protected function parsePhp($content) {
-        if(ini_get('short_open_tag')){
+    		//ini_get——获取一个配置选项的值。
+        if(ini_get('short_open_tag')){ //最好是关闭短标签选项，否则要进行一次正则表达式的替换，影响效率。
             // 开启短标签的情况要将<?标签用echo方式输出 否则无法正常输出xml标识
             $content = preg_replace('/(<\?(?!php|=|$))/i', '<?php echo \'\\1\'; ?>'."\n", $content );
         }
         // PHP语法检查
+        //C('TMPL_DENY_PHP')——none。默认模板引擎是否禁用PHP原生代码
         if(C('TMPL_DENY_PHP') && false !== strpos($content,'<?php')) {
             E(L('_NOT_ALLOW_PHP_'));
         }
@@ -233,6 +246,13 @@ class  Template {
     }
 
     // 解析模板中的include标签
+    /*
+     * 1.解析继承
+     * 2.解析布局
+     * 3.读取模板中include标签
+     * 4.通过include标签的file属性数组，遍历，找到include的文件，并获取内容替换include标签（parseTempleteName()）
+     * 5.返回处理include后的内容
+     */
     protected function parseInclude($content, $extend = true) {
         // 解析继承
         if($extend)
@@ -260,10 +280,13 @@ class  Template {
         if($find) {
             for($i=0;$i<$find;$i++) {
                 $include    =   $matches[1][$i];
+                /*
+                 * $array = array('file'=>'Public/head')
+                 */
                 $array      =   $this->parseXmlAttrs($include);
-                var_dump($array);exit; //TODO
-                $file       =   $array['file'];
-                unset($array['file']);
+                $file       =   $array['file']; //用于找include的文件
+                unset($array['file']); //这里的unset()比较重要，如果只包含'file',那么就$array就是一个空数组了。
+                //$matches[0]中的每一个单元是等待内容替换的标签位置。
                 $content    =   str_replace($matches[0][$i],$this->parseIncludeItem($file,$array,$extend),$content);
             }
         }
@@ -337,6 +360,9 @@ class  Template {
 
     /**
      * 替换页面中的literal标签
+     * 1.将literal部分用一个"<!--###literal{$i}###-->"替换
+     * 2.将literal包含的内容存放在属性literal中
+     * 3.返回被替换成的字符串
      * @access private
      * @param string $content  模板内容
      * @return string|false
@@ -442,12 +468,15 @@ class  Template {
     /**
      * 搜索模板页面中包含的TagLib库
      * 并返回列表
+     * 如果有就替换／解析标签库中的标签，将标签名存放在属性taglib中，不返回任何值。
+     * 格式：'<taglib name="">'
      * @access public
      * @param string $content  模板内容
      * @return string|false
      */
     public function getIncludeTagLib(& $content) {
         //搜索是否有TagLib标签
+        //$this->config['taglib_begin']/$this->config['taglib_end']：'<'/'>'
         $find = preg_match('/'.$this->config['taglib_begin'].'taglib\s(.+?)(\s*?)\/'.$this->config['taglib_end'].'\W/is',$content,$matches);
         if($find) {
             //替换TagLib标签
@@ -744,6 +773,9 @@ class  Template {
 
     /**
      * 加载公共模板并缓存 和当前模板在同一路径，否则使用相对路径
+     * 1.分析模板文件名并获取内容
+     * 2.替换变量
+     * 3.再次对包含文件进行模板分析
      * @access private
      * @param string $tmplPublicName  公共模板文件名
      * @param array $vars  要传递的变量列表
