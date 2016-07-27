@@ -490,6 +490,7 @@ class  Template {
 
     /**
      * TagLib库解析
+     * 1.通过strrpos+substr来获取标签库的名称
      * @access public
      * @param string $tagLib 要解析的标签库
      * @param string $content 要解析的模板内容
@@ -499,35 +500,43 @@ class  Template {
     public function parseTagLib($tagLib,&$content,$hide=false) {
         $begin      =   $this->config['taglib_begin'];
         $end        =   $this->config['taglib_end'];
+        //$tagLib>>>'OT\TagLib\Article'
         if(strpos($tagLib,'\\')){
             // 支持指定标签库的命名空间
             $className  =   $tagLib;
-            $tagLib     =   substr($tagLib,strrpos($tagLib,'\\')+1);
+            //strrpos——计算指定字符串在目标字符串中最后一次出现的位置。
+            $tagLib     =   substr($tagLib,strrpos($tagLib,'\\')+1); //获取标签库的名称
         }else{
             $className  =   'Think\\Template\TagLib\\'.ucwords($tagLib);            
         }
+        //TODO
         $tLib       =   \Think\Think::instance($className);
         $that       =   $this;
-        foreach ($tLib->getTags() as $name=>$val){
-            $tags = array($name);
+        //TODO
+        foreach ($tLib->getTags() as $name=>$val){ //debug>>>这个getTags()是怎么来的？name是标签名称
+            $tags = array($name); 	//因为别名的存在，所以用数组管理某个标签的名称
             if(isset($val['alias'])) {// 别名设置
-                $tags       = explode(',',$val['alias']);
-                $tags[]     =  $name;
+                $tags       = explode(',',$val['alias']); //别名是用','分隔的字符串。这里重置了$tags。
+                $tags[]     =  $name; //由标签名和其别名组成的数组
             }
-            $level      =   isset($val['level'])?$val['level']:1;
-            $closeTag   =   isset($val['close'])?$val['close']:true;
+            $level      =   isset($val['level'])?$val['level']:1; //节省了定义属性$tags的代码，下同
+            $closeTag   =   isset($val['close'])?$val['close']:true; //标签是否闭合
             foreach ($tags as $tag){
-                $parseTag = !$hide? $tagLib.':'.$tag: $tag;// 实际要解析的标签名称
-                if(!method_exists($tLib,'_'.$tag)) {
+                $parseTag = !$hide? $tagLib.':'.$tag: $tag;// 实际要解析的标签名称。hide是调用方法传递时传递的参数。
+                if(!method_exists($tLib,'_'.$tag)) { //$tags遍历出来的$tag包括标签别名和标签名称，name是标签名称
                     // 别名可以无需定义解析方法
                     $tag  =  $name;
                 }
-                $n1 = empty($val['attr'])?'(\s*?)':'\s([^'.$end.']*)';
+                //$n1>>>'\s([^>]*)'
+                $n1 = empty($val['attr'])?'(\s*?)':'\s([^'.$end.']*)'; //debug>>>这句有什么用？
                 $this->tempVar = array($tagLib, $tag);
 
-                if (!$closeTag){
+                if (!$closeTag){ //不是闭合标签
+                	//$parseTag>>>'Article:partpage'
+                	//$patterns>>>'/<Article:partpage\s([^>]*)\/(\s*?)>/is'
                     $patterns       = '/'.$begin.$parseTag.$n1.'\/(\s*?)'.$end.'/is';
                     $content        = preg_replace_callback($patterns, function($matches) use($tLib,$tag,$that){
+                    	//TODO
                         return $that->parseXmlTag($tLib,$tag,$matches[1],$matches[2]);
                     },$content);
                 }else{
@@ -553,11 +562,24 @@ class  Template {
      * @return string|false
      */
     public function parseXmlTag($tagLib,$tag,$attr,$content) {
-        if(ini_get('magic_quotes_sybase'))
+    	/*
+    	 * $tag>>>'list'
+    	 * $attr>>>'name="article" category="1" child="true"'
+    	 */
+        if(ini_get('magic_quotes_sybase')) //魔术引号的一个指令，如果打开的话，将会使用单引号对单引号进行转义而非反斜线。此选项会完全覆盖magic_quotes_sybase。
             $attr   =	str_replace('\"','\'',$attr);
+        //$parse>>>'_list'
         $parse      =	'_'.$tag;
         $content    =	trim($content);
+		/*
+		 * $tags>>>array(
+		 * 		'name' => 'article',
+		 * 		'category' => '1',
+		 * 		'childe'  => 'true'
+		 * )
+		 */        
 		$tags		=   $tagLib->parseXmlAttr($attr,$tag);
+		//TODO
         return $tagLib->$parse($tags,$content);
     }
 

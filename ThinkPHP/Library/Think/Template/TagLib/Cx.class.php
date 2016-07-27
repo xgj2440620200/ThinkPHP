@@ -23,8 +23,8 @@ class Cx extends TagLib {
         'volist'    =>  array('attr'=>'name,id,offset,length,key,mod','level'=>3,'alias'=>'iterate'),
         'foreach'   =>  array('attr'=>'name,item,key','level'=>3),
         'if'        =>  array('attr'=>'condition','level'=>2),
-        'elseif'    =>  array('attr'=>'condition','close'=>0),
-        'else'      =>  array('attr'=>'','close'=>0),
+        'elseif'    =>  array('attr'=>'condition','close'=>0), //规定了'elseif'不能有空格，没有闭合
+        'else'      =>  array('attr'=>'','close'=>0), //没有闭合
         'switch'    =>  array('attr'=>'name','level'=>2),
         'case'      =>  array('attr'=>'value,break'),
         'default'   =>  array('attr'=>'','close'=>0),

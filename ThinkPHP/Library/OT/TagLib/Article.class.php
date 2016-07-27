@@ -17,6 +17,7 @@ class Article extends TagLib{
 	 * @var array
 	 */
 	protected $tags   =  array(
+		//debug>>>下面数组中的'close=1'可以去除，因为TP自己对标签的关闭配置进行过一次检查和设置
 		'partlist' => array('attr' => 'id,field,page,name', 'close' => 1), //段落列表
 		'partpage' => array('attr' => 'id,listrow', 'close' => 0), //段落分页
 		'prev'     => array('attr' => 'name,info', 'close' => 1), //获取上一篇文章信息
@@ -25,12 +26,18 @@ class Article extends TagLib{
 		'position' => array('attr' => 'pos,cate,limit,filed,name', 'close' => 1), //获取推荐位列表
 		'list'     => array('attr' => 'name,category,child,page,row,field', 'close' => 1), //获取指定分类列表
 	);
-
+	
+	/*
+	 * 
+	 */
 	public function _list($tag, $content){
+		/*
+		 * $tag>>>array('name'=>'article', 'category'=>'1', 'child'=>'true')
+		 */
 		$name   = $tag['name'];
 		$cate   = $tag['category'];
 		$child  = empty($tag['child']) ? 'false' : $tag['child'];
-		$row    = empty($tag['row'])   ? '10' : $tag['row'];
+		$row    = empty($tag['row'])   ? '10' : $tag['row']; //默认是10条记录
 		$field  = empty($tag['field']) ? 'true' : $tag['field'];
 
 		$parse  = '<?php ';
