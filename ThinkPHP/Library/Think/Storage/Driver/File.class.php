@@ -34,12 +34,13 @@ class File extends Storage{
 
     /**
      * 文件写入
+     * 将内容写到传入的文件名中，$type并没有什么用
      * @access public
      * @param string $filename  文件名
      * @param string $content  文件内容
      * @return boolean         
      */
-    public function put($filename,$content,$type=''){
+    public function put($filename,$content,$type=''){ //debug>>>这个$type有什么用？
         $dir         =  dirname($filename);
         if(!is_dir($dir))
             mkdir($dir,0755,true);
@@ -67,6 +68,7 @@ class File extends Storage{
 
     /**
      * 加载文件
+     * 使用include包含运行文件
      * @access public
      * @param string $filename  文件名
      * @param array $vars  传入变量

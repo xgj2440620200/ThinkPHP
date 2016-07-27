@@ -21,6 +21,8 @@ class ContentReplaceBehavior {
 
     /**
      * 模板内容替换
+     * 替换的是系统默认的特殊变量和用户自定义模板字符串。
+     * '__ROOT__'=》__ROOT__
      * @access protected
      * @param string $content 模板内容
      * @return string

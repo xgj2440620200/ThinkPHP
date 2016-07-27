@@ -28,7 +28,10 @@ class Article extends TagLib{
 	);
 	
 	/*
-	 * 
+	 * 解析数据集的分页
+	 * 1.配置分页的参数：行数、child、字段
+	 * 2.拼接字符串，由一段获取分页数据的php代码和<volist>数据集拼接成字符串。
+	 * 3.返回这个字符串
 	 */
 	public function _list($tag, $content){
 		/*

@@ -122,20 +122,20 @@ class Hook {
      * @return void
      */
     static public function listen($tag, &$params=NULL) {
-    		if($tag == 'view_parse'){
-    			if(isset(self::$tags[$tag])){
-    				if(APP_DEBUG){
-    					G($tag.'Start');
-    					trace('['.$tag.']--START--','','INFO');
-    				}
-    				foreach(self::$tags[$tag] as $name){
-    					APP_DEBUG && G($name.'_start');
-    					//$name>>>'Behavior\ParseTemplate'
-    					//$tag>>>'view_parse';
-    					$result = self::exec($name, $tag, $params);
-    				}
-    			}
-    		} 
+//     		if($tag == 'view_parse'){
+//     			if(isset(self::$tags[$tag])){
+//     				if(APP_DEBUG){
+//     					G($tag.'Start');
+//     					trace('['.$tag.']--START--','','INFO');
+//     				}
+//     				foreach(self::$tags[$tag] as $name){
+//     					APP_DEBUG && G($name.'_start');
+//     					//$name>>>'Behavior\ParseTemplate'
+//     					//$tag>>>'view_parse';
+//     					$result = self::exec($name, $tag, $params);
+//     				}
+//     			}
+//     		} 
     		//$params>>>NULL
     		//$tag>>>'app_init'
         if(isset(self::$tags[$tag])) {

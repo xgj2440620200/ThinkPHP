@@ -65,6 +65,8 @@ class  Template {
 
     /**
      * 加载模板
+     * 加载的模板文件会被解析，并存放在保存编译文件的目录中
+     * 返回的是解析过后的模板文件
      * @access public
      * @param string $tmplTemplateFile 模板文件
      * @param array  $templateVar 模板变量
@@ -73,7 +75,6 @@ class  Template {
      */
     public function fetch($templateFile,$templateVar,$prefix='') {
         $this->tVar         =   $templateVar;
-        //TODO
         $templateCacheFile  =   $this->loadTemplate($templateFile,$prefix);
         Storage::load($templateCacheFile,$this->tVar,null,'tpl');
     }
@@ -83,6 +84,7 @@ class  Template {
      * 读取模板文件内容用的是file_get_content()。
      * 模板文件的缓存路径是：缓存路径＋前缀＋md5加密的模板文件完成路径名＋缓存后缀（'.php')
      * 编译模板内容
+     * 返回编译后的模板文件的绝对路径
      * @access public
      * @param string $tmplTemplateFile 模板文件
      * @param string $prefix 模板标识前缀
@@ -98,7 +100,7 @@ class  Template {
         }else{
             $tmplContent =  $tmplTemplateFile;
         }
-         // 根据模版文件名定位缓存文件
+         // 模板文件的绝对路径。根据模版文件名定位缓存文件
          //$this->config['cache_path']>>>'./Runtime/Cache/Home/'
          //$this->config['cache_suffix']>>>'.php'
         $tmplCacheFile = $this->config['cache_path'].$prefix.md5($tmplTemplateFile).$this->config['cache_suffix'];
@@ -114,7 +116,6 @@ class  Template {
             }
         }
         // 编译模板内容
-        //TODO
         $tmplContent =  $this->compiler($tmplContent);
         Storage::put($tmplCacheFile,trim($tmplContent),'tpl');
         return $tmplCacheFile;
@@ -123,21 +124,28 @@ class  Template {
     /**
      * 编译模板文件内容
      * 模板解析
+     * 主要是解析标签
+     * 1.模板解析
+     * 2.还原被天魂的literal标签
+     * 3.添加安全代码
+     * 4.优化生成的PHP代码
+     * 5.替换系统的常量和用户自定义模板字符串
+     * 6.过滤空格、注释
+     * 7.返回内容
      * @access protected
      * @param mixed $tmplContent 模板内容
      * @return string
      */
     protected function compiler($tmplContent) {
         //模板解析
-        //TODO
         $tmplContent =  $this->parse($tmplContent);
         // 还原被替换的Literal标签
         $tmplContent =  preg_replace_callback('/<!--###literal(\d+)###-->/is', array($this, 'restoreLiteral'), $tmplContent);
-        // 添加安全代码
+        // 添加安全代码。模板中都添加了安全代码。debug>>>有什么用？应该是保护缓存的编译文件。
         $tmplContent =  '<?php if (!defined(\'THINK_PATH\')) exit();?>'.$tmplContent;
         // 优化生成的php代码
         $tmplContent = str_replace('?><?php','',$tmplContent);
-        // 模版编译过滤标签
+        // 模版编译过滤标签。替换系统的常量和用户自定义模板字符串
         Hook::listen('template_filter',$tmplContent);
         return strip_whitespace($tmplContent);
     }
@@ -145,6 +153,12 @@ class  Template {
     /**
      * 模板解析入口
      * 支持普通标签和TagLib解析 支持自定义标签库
+     * 1.检查include语法
+     * 2.检查PHP语法
+     * 3.替换literal标签的内容
+     * 4.获取需要引入的标签列表，并解析内容中的标签
+     * 5.解析普通模板标签
+     * 6.返回经过模板解析后的内容
      * @access public
      * @param string $content 要解析的模板内容
      * @return string
@@ -195,10 +209,10 @@ class  Template {
          * $tagLibs = array('cx')
          */
         foreach ($tagLibs as $tag){
-        		//TODO
             $this->parseTagLib($tag,$content,true);
         }
-        //解析普通模板标签 {tagName}
+        //解析普通模板标签 {tagName}。debug>>>什么是普通模板标签？
+        //'/(\{)([^\d\s\{\}].+?)(\})/is'
         $content = preg_replace_callback('/('.$this->config['tmpl_begin'].')([^\d\s'.$this->config['tmpl_begin'].$this->config['tmpl_end'].'].+?)('.$this->config['tmpl_end'].')/is', array($this, 'parseTag'),$content);
         return $content;
     }
@@ -491,6 +505,9 @@ class  Template {
     /**
      * TagLib库解析
      * 1.通过strrpos+substr来获取标签库的名称
+     * 2.创建标签库的实例
+     * 3.对页面内容中的所有标签替换成PHP代码或者加其他标签的字符串
+     * 4.返回被替换后的内容
      * @access public
      * @param string $tagLib 要解析的标签库
      * @param string $content 要解析的模板内容
@@ -509,10 +526,8 @@ class  Template {
         }else{
             $className  =   'Think\\Template\TagLib\\'.ucwords($tagLib);            
         }
-        //TODO
         $tLib       =   \Think\Think::instance($className);
         $that       =   $this;
-        //TODO
         foreach ($tLib->getTags() as $name=>$val){ //debug>>>这个getTags()是怎么来的？name是标签名称
             $tags = array($name); 	//因为别名的存在，所以用数组管理某个标签的名称
             if(isset($val['alias'])) {// 别名设置
@@ -535,8 +550,8 @@ class  Template {
                 	//$parseTag>>>'Article:partpage'
                 	//$patterns>>>'/<Article:partpage\s([^>]*)\/(\s*?)>/is'
                     $patterns       = '/'.$begin.$parseTag.$n1.'\/(\s*?)'.$end.'/is';
-                    $content        = preg_replace_callback($patterns, function($matches) use($tLib,$tag,$that){
-                    	//TODO
+                    //将标签内容替换成PHP代码或加其他标签的字符串
+                    $content        = preg_replace_callback($patterns, function($matches) use($tLib,$tag,$that){ 
                         return $that->parseXmlTag($tLib,$tag,$matches[1],$matches[2]);
                     },$content);
                 }else{
@@ -554,6 +569,7 @@ class  Template {
     /**
      * 解析标签库的标签
      * 需要调用对应的标签库文件解析类
+     * 返回由PHP代码或者加其他标签连接成的字符串
      * @access public
      * @param object $tagLib  标签库对象实例
      * @param string $tag  标签名
@@ -579,7 +595,6 @@ class  Template {
 		 * )
 		 */        
 		$tags		=   $tagLib->parseXmlAttr($attr,$tag);
-		//TODO
         return $tagLib->$parse($tags,$content);
     }
 

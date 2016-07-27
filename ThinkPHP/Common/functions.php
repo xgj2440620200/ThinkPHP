@@ -648,6 +648,10 @@ function B($name, &$params=NULL) {
 function strip_whitespace($content) {
     $stripStr   = '';
     //分析php源码
+    /*token_get_all——将提供的源码按PHP标记进行分割
+     * 解析体统的soruce源码字符，然后使用Zend引擎的语法分析器获取源码中的PHP语言的解析器代号
+     * 返回一个token身份数组。
+     */
     $tokens     = token_get_all($content);
     $last_space = false;
     for ($i = 0, $j = count($tokens); $i < $j; $i++) {
