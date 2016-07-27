@@ -56,6 +56,7 @@ class View {
 
     /**
      * 加载模板和页面输出 可以返回输出内容
+     * 调用了fetch()。
      * @access public
      * @param string $templateFile 模板文件名
      * @param string $charset 模板输出字符集
@@ -72,7 +73,7 @@ class View {
         $content = $this->fetch($templateFile,$content,$prefix);
         // 输出模板内容
         $this->render($content,$charset,$contentType);
-        // 视图结束标签
+        // 视图结束标签，没有定义对应的处理类
         Hook::listen('view_end');
     }
 
