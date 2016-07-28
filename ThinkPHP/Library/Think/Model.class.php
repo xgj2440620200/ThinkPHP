@@ -21,11 +21,12 @@ class Model {
     const MUST_VALIDATE         =   1;      // 必须验证
     const EXISTS_VALIDATE       =   0;      // 表单存在字段则验证
     const VALUE_VALIDATE        =   2;      // 表单值不为空则验证
-
+	
+    //通过设置属性为的访问权限为protected来实现单例功能
     // 当前数据库操作对象
     protected $db               =   null;
     // 主键名称
-    protected $pk               =   'id';
+    protected $pk               =   'id'; //默认了主键名称是'id'
     // 主键是否自动增长
     protected $autoinc          =   false;    
     // 数据表前缀
@@ -47,7 +48,7 @@ class Model {
     // 数据信息
     protected $data             =   array();
     // 查询表达式参数
-    protected $options          =   array();
+    protected $options          =   array();  //debug>>>?
     protected $_validate        =   array();  // 自动验证定义
     protected $_auto            =   array();  // 自动完成定义
     protected $_map             =   array();  // 字段映射定义
@@ -62,12 +63,16 @@ class Model {
     /**
      * 架构函数
      * 取得DB类的实例对象 字段检查
+     * 1.模型初始化（为空，需要子类具体实现）
+     * 2.$name或者getModelName()获取模型名称
+     * 3.通过$tablePrefxi或者C('DB_Prefix')设置表前缀
+     * 4.通过$connection初始化数据库连接
      * @access public
      * @param string $name 模型名称
      * @param string $tablePrefix 表前缀
      * @param mixed $connection 数据库连接信息
      */
-    public function __construct($name='',$tablePrefix='',$connection='') {
+    public function __construct($name='',$tablePrefix='',$connection='') {  //$tablePrefix为''好像没有用，因为根本就没有用到''。
         // 模型初始化
         $this->_initialize();
         // 获取模型名称
@@ -75,12 +80,14 @@ class Model {
             if(strpos($name,'.')) { // 支持 数据库名.模型名的 定义
                 list($this->dbName,$this->name) = explode('.',$name);
             }else{
-                $this->name   =  $name;
+                $this->name   =  $name;  //name是模型名称
             }
         }elseif(empty($this->name)){
-            $this->name =   $this->getModelName();
+            $this->name =   $this->getModelName();  //debug>>没有实测
         }
+        //$this->name>>>'Config'
         // 设置表前缀
+        //C('DB_PREFIX')>>>'onethink_'
         if(is_null($tablePrefix)) {// 前缀为Null表示没有前缀
             $this->tablePrefix = '';
         }elseif('' != $tablePrefix) {
@@ -92,7 +99,8 @@ class Model {
         // 数据库初始化操作
         // 获取数据库操作对象
         // 当前模型有独立的数据库连接信息
-        $this->db(0,empty($this->connection)?$connection:$this->connection,true);
+        //TODO
+        $this->db(0,empty($this->connection)?$connection:$this->connection,true);  //单例功能
     }
 
     /**
@@ -228,7 +236,7 @@ class Model {
         }
     }
     // 回调方法 初始化模型
-    protected function _initialize() {}
+    protected function _initialize() {}  //这个_initialize()可以在子类中实现。
 
     /**
      * 对保存到数据库的数据进行处理
@@ -1240,16 +1248,21 @@ class Model {
      * @return Model
      */
     public function db($linkNum='',$config='',$force=false) {
+    	/*
+    	 * $linkNum>>>'',$this->db>>>NULL
+    	 */
         if('' === $linkNum && $this->db) {
             return $this->db;
         }
 
-        static $_db = array();
+        static $_db = array();  //将数据库连接放在了静态数组中。静态变量在函数中初始化一次后，再执行是不会重新初始化的。程序离开静态变量的函数后，静态变量是不会消失的。
         if(!isset($_db[$linkNum]) || $force ) {
             // 创建一个新的实例
+            //$config>>>''
             if(!empty($config) && is_string($config) && false === strpos($config,'/')) { // 支持读取配置参数
                 $config  =  C($config);
             }
+            //TODO
             $_db[$linkNum]            =    Db::getInstance($config);
         }elseif(NULL === $config){
             $_db[$linkNum]->close(); // 关闭数据库连接
@@ -1273,10 +1286,13 @@ class Model {
      * @return string
      */
     public function getModelName() {
-        if(empty($this->name)){
+        if(empty($this->name)){  //又是一个单例功能
+        	//get_class——返回一个对象的类名
+        	//$name是截取掉模型类名后面的'Model'，是'Think\'
+        	//$this>>>object(Think\Model)
             $name = substr(get_class($this),0,-5);
             if ( $pos = strrpos($name,'\\') ) {//有命名空间
-                $this->name = substr($name,$pos+1);
+                $this->name = substr($name,$pos+1);  //none
             }else{
                 $this->name = $name;
             }

@@ -490,9 +490,11 @@ function D($name='',$layer='') {
     $layer          =   $layer? $layer : C('DEFAULT_M_LAYER');
     if(isset($_model[$name.$layer]))//检测是否有对应的模型
         return $_model[$name.$layer];
-    //$class——'Home\Model\CategoryModel'
+    //$class——'Home\Model\CategoryModel'.$class是由$name和$layer得来的
     $class          =   parse_res_name($name,$layer);
+    //$name>>>'Category'
     if(class_exists($class)) {
+    	//basename($name)>>>'Category'。获取对应模型的实例。
         $model      =   new $class(basename($name));//$name，这个参数传进去并没有什么用
     }elseif(false === strpos($name,'/')){
         // 自动加载公共模块下面的模型
@@ -516,14 +518,19 @@ function D($name='',$layer='') {
  */
 function M($name='', $tablePrefix='',$connection='') {
     static $_model  = array();
-    if(strpos($name,':')) {
+    if(strpos($name,':')) { //带自定义基础模型的
         list($class,$name)    =  explode(':',$name);
     }else{
         $class      =   'Think\\Model';
     }
+    /*$guid>>>'Config_Think\Model'。作为键名
+     *$name>>>'Config'
+     */
     $guid           =   (is_array($connection)?implode('',$connection):$connection).$tablePrefix . $name . '_' . $class;
-    if (!isset($_model[$guid]))
+    if (!isset($_model[$guid])) //具有单例功能
+    {
         $_model[$guid] = new $class($name,$tablePrefix,$connection);
+    }
     return $_model[$guid];
 }
 
@@ -1044,15 +1051,28 @@ function F($name, $value='', $path=DATA_PATH) {
 
 /**
  * 根据PHP各种类型变量生成唯一标识号
+ * 用到的是md5()加密生成唯一标识号
  * @param mixed $mix 变量
  * @return string
  */
 function to_guid_string($mix) {
+	//$mix>>>array()，一个空数组
     if (is_object($mix)) {
         return spl_object_hash($mix);
     } elseif (is_resource($mix)) {
         $mix = get_resource_type($mix) . strval($mix);
     } else {
+    	/*
+    	 * serialize——产生一个可存储的值的表示
+    	 * string serialize(mixed $value)
+    	 * serialize()返回字符串，此字符串包含了value的字节流，可以存储于任何地方。
+    	 * 这有利于存储或传递PHP的值，同时不丢失其类型和结构。
+    	 * 使用unserialize()可以将已序列化的字符串变回PHP的值。serialize可以处理除了resource之外的
+    	 * 任何类型。甚至可以seralize()那些包含了指向其自身引用的数组（空数组？）。你正serialize()的数组/对象中的引用也将被存储。
+    	 * 当序列化对象时，PHP将试图在序列动作之前调用该对象的成员函数__sleep()。这样就允许对象在被序列化之前做任何清楚操作。
+    	 * 当使用unserialize()恢复对象时，将调用__wakeup()成员函数。
+    	 */
+    	//$mix>>>'a:0:{}'
         $mix = serialize($mix);
     }
     return md5($mix);

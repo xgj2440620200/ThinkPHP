@@ -19,6 +19,7 @@ class Mysql extends Db{
 
     /**
      * 架构函数 读取数据库配置信息
+     * 将配置信息赋值给config属性
      * @access public
      * @param array $config 数据库配置数组
      */

@@ -53,15 +53,17 @@ class Db {
 
     /**
      * 取得数据库类实例
+     * 从静态变量中获取或者从工厂类中创建数据库驱动类实例
      * @static
      * @access public
      * @return mixed 返回数据库驱动类
      */
     public static function getInstance($db_config='') {
-		static $_instance	=	array();
-		$guid	=	to_guid_string($db_config);
+		static $_instance	=	array();  //单例功能
+		$guid	=	to_guid_string($db_config); //用的是md5加密
 		if(!isset($_instance[$guid])){
 			$obj	=	new Db();
+			//TODO
 			$_instance[$guid]	=	$obj->factory($db_config);
 		}
 		return $_instance[$guid];
@@ -69,24 +71,46 @@ class Db {
 
     /**
      * 加载数据库 支持配置文件或者 DSN
+     * 返回一个数据库驱动类的实例
+     * 1.读取数据库配置
+     * 2.获取数据库类型对应的包含命名空间的类名
+     * 3.检查驱动类是否存在，并实例化
+     * 4.返回数据库驱动实例
      * @access public
      * @param mixed $db_config 数据库配置信息
      * @return string
      */
     public function factory($db_config='') {
+    	//$db_config>>>array()
         // 读取数据库配置
-        $db_config = $this->parseConfig($db_config);
+        $db_config = $this->parseConfig($db_config);  //返回的是一个配置参数的关联数组
+        /*
+         * $db_config = array(
+         * 		'dbms' => 'mysqli',
+         * 		'username' => 'root',
+         *      'password' => 'root',
+         *      'hostname' => '127.0.0.1',
+         *      'hostport' => '3306',
+         *      'database' => 'ot',
+         *      'dsn' => NULL,
+         *      'params' => NULL
+         * )
+         */
         if(empty($db_config['dbms']))
+        	//L('_NO_DB_CONFIG_')>>>'没有定义数据库配置'
             E(L('_NO_DB_CONFIG_'));
         // 数据库类型
         if(strpos($db_config['dbms'],'\\')){
             $class  =   $db_config['dbms'];
         }else{
+        	//$dbType>>>'Mysqli'
             $dbType =   ucwords(strtolower($db_config['dbms']));
+            //$class>>>'Think\Db\Driver\Mysqli'
             $class  =   'Think\\Db\\Driver\\'. $dbType;            
         }
         // 检查驱动类
         if(class_exists($class)) {
+        	//实例化Mysqli驱动类
             $db = new $class($db_config);
         }else {
             // 类没有定义
@@ -109,11 +133,14 @@ class Db {
 
     /**
      * 分析数据库配置信息，支持数组和DSN
+     * 1.如果传过来的$db_config是''，就读取部分数据库的配置参数。（暂时定为不传递参数的情况）
+     * 2.返回数据库配置参数的关联数组
      * @access private
      * @param mixed $db_config 数据库配置信息
      * @return string
      */
     private function parseConfig($db_config='') {
+    	//$db_config>>>''
         if ( !empty($db_config) && is_string($db_config)) {
             // 如果DSN字符串则进行解析
             $db_config = $this->parseDSN($db_config);
@@ -131,9 +158,20 @@ class Db {
              );
         }elseif(empty($db_config)) {
             // 如果配置为空，读取配置文件设置
+            //C('DB_DSN')>>>NULL
             if( C('DB_DSN') && 'pdo' != strtolower(C('DB_TYPE')) ) { // 如果设置了DB_DSN 则优先
                 $db_config =  $this->parseDSN(C('DB_DSN'));
             }else{
+            	/*
+            	 * C('DB_TYPE')>>>'mysqli'
+            	 * C('DB_USER')>>>'root'
+            	 * C('DB_PWD')>>>'root'
+            	 * C('DB_HOST')>>>'127.0.0.1'
+            	 * C('DB_PORT')>>>'3306
+            	 * C('DB_NAME')>>>'ot'
+            	 * C('DB_DSN')>>>
+            	 * C('DB_PARAMS')>>>
+            	 */
                 $db_config = array (
                     'dbms'      =>  C('DB_TYPE'),
                     'username'  =>  C('DB_USER'),
