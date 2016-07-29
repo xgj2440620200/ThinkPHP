@@ -24,6 +24,7 @@ class File extends Storage{
 
     /**
      * 文件内容读取
+     * 调用的是get()方法，而其中用的是file_get_contents()函数。
      * @access public
      * @param string $filename  文件名
      * @return string     
@@ -82,6 +83,7 @@ class File extends Storage{
 
     /**
      * 文件是否存在
+     * is_file()函数
      * @access public
      * @param string $filename  文件名
      * @return boolean     
@@ -92,12 +94,14 @@ class File extends Storage{
 
     /**
      * 文件删除
+     * 使用unlink()函数
      * @access public
      * @param string $filename  文件名
      * @return boolean     
      */
     public function unlink($filename,$type=''){
         unset($this->contents[$filename]);
+        //unlink——删除文件
         return is_file($filename) ? unlink($filename) : false; 
     }
 

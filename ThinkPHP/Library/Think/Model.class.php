@@ -48,7 +48,7 @@ class Model {
     // 数据信息
     protected $data             =   array();
     // 查询表达式参数
-    protected $options          =   array();  //debug>>>?
+    protected $options          =   array();  //是一个二维数组，键名是sql关键字
     protected $_validate        =   array();  // 自动验证定义
     protected $_auto            =   array();  // 自动完成定义
     protected $_map             =   array();  // 字段映射定义
@@ -99,12 +99,15 @@ class Model {
         // 数据库初始化操作
         // 获取数据库操作对象
         // 当前模型有独立的数据库连接信息
+        // 获取了字段信息
         //TODO
         $this->db(0,empty($this->connection)?$connection:$this->connection,true);  //单例功能
     }
 
     /**
      * 自动检测数据表信息
+     * 调用了flush()方法
+     * 获取字段信息，并缓存
      * @access protected
      * @return void
      */
@@ -113,7 +116,7 @@ class Model {
         // 只在第一次执行记录
         if(empty($this->fields)) {
             // 如果数据表字段没有定义则自动获取
-            if(C('DB_FIELDS_CACHE')) {
+            if(C('DB_FIELDS_CACHE')) { //启用字段缓存
                 $db   =  $this->dbName?$this->dbName:C('DB_NAME');
                 $fields = F('_fields/'.strtolower($db.'.'.$this->name));
                 if($fields) {
@@ -129,34 +132,36 @@ class Model {
 
     /**
      * 获取字段信息并缓存
+     * 缓存是赋值给属性，如果配置了'DB_FIELDS_CACHE'，还要将字段信息写入文件。
      * @access public
      * @return void
      */
     public function flush() {
         // 缓存不存在则查询数据表信息
-        $this->db->setModel($this->name);
-        $fields =   $this->db->getFields($this->getTableName());
+        //$this->db是mysqli的数据库连接对象
+        $this->db->setModel($this->name); //mysqli并没有这个方法
+        $fields =   $this->db->getFields($this->getTableName()); //一个字段信息组成的二维关联数组
         if(!$fields) { // 无法获取字段信息
             return false;
         }
-        $this->fields   =   array_keys($fields);
+        $this->fields   =   array_keys($fields);  //获取字段名，并不需要使用字段对应的各种属性。
         foreach ($fields as $key=>$val){
             // 记录字段类型
             $type[$key]     =   $val['type'];
             if($val['primary']) {
-                $this->pk   =   $key;
-                $this->fields['_pk']   =   $key;
+                $this->pk   =   $key;  //注意：这里用表字段信息中的主键列名赋值给模型类的pk属性。虽然pk默认是'id'，但是可以变。即如果想使用pk相关的方法，不必数据表设计限制为'id'。	
+                $this->fields['_pk']   =   $key;  //fileds属性中多了'_pk'，方便其他方法的操作。
                 if($val['autoinc']) $this->autoinc   =   true;
             }
         }
         // 记录字段类型信息
-        $this->fields['_type'] =  $type;
+        $this->fields['_type'] =  $type; //$type是个数组
 
         // 2008-3-7 增加缓存开关控制
         if(C('DB_FIELDS_CACHE')){
             // 永久缓存数据表信息
             $db   =  $this->dbName?$this->dbName:C('DB_NAME');
-            F('_fields/'.strtolower($db.'.'.$this->name),$this->fields);
+            F('_fields/'.strtolower($db.'.'.$this->name),$this->fields);	//第一个参数是路径
         }
     }
 
@@ -1262,18 +1267,18 @@ class Model {
             if(!empty($config) && is_string($config) && false === strpos($config,'/')) { // 支持读取配置参数
                 $config  =  C($config);
             }
-            //TODO
             $_db[$linkNum]            =    Db::getInstance($config);
         }elseif(NULL === $config){
             $_db[$linkNum]->close(); // 关闭数据库连接
             unset($_db[$linkNum]);
             return ;
         }
-
         // 切换数据库连接
         $this->db   =    $_db[$linkNum];
-        $this->_after_db();
+        $this->_after_db();  //_after_db()是空的，可以在子模型类中实现。
         // 字段检测
+        //name是模型名
+        //autoCheckFields>>>true，知否自动检测数据表字段信息
         if(!empty($this->name) && $this->autoCheckFields)    $this->_checkTableInfo();
         return $this;
     }
@@ -1527,15 +1532,17 @@ class Model {
 
     /**
      * 指定查询字段 支持字段排除
+     * 通过getDbFields()来获取字段信息，如果$except=true，且获取字段信息失败，将'*'赋值给$fields
+     * 排除字段，是通过array_diff()实现，如果传递过来的$field是字符串，使用explode(',', $fileds)来变成数组
      * @access public
-     * @param mixed $field
+     * @param mixed $field 数组或者由逗号分隔的字符串
      * @param boolean $except 是否排除
      * @return Model
      */
-    public function field($field,$except=false){
+    public function field($field,$except=false){  //是bool，不是字符串的true。
         if(true === $field) {// 获取全部字段
             $fields     =  $this->getDbFields();
-            $field      =  $fields?$fields:'*';
+            $field      =  $fields?$fields:'*'; //如果获取字段信息失败，直接使用'*'。
         }elseif($except) {// 字段排除
             if(is_string($field)) {
                 $field  =  explode(',',$field);
@@ -1584,6 +1591,11 @@ class Model {
 
     /**
      * 指定查询条件 支持安全过滤
+     * 实际上是给options['where']赋值
+     * 可以使用对象作为参数
+     * 传入''无效
+     * 1.将对象或字符串参数转换成数组形式，其中字符串参数赋值给'_string'，
+     * 2.将数组赋值给属性optinos['where']，支持多个where()，用array_merge()合并
      * @access public
      * @param mixed $where 条件表达式
      * @param mixed $parse 预处理参数
@@ -1597,15 +1609,15 @@ class Model {
             }
             $parse = array_map(array($this->db,'escapeString'),$parse);
             $where =   vsprintf($where,$parse);
-        }elseif(is_object($where)){
+        }elseif(is_object($where)){  //$where还可以是对象
             $where  =   get_object_vars($where);
         }
         if(is_string($where) && '' != $where){
-            $map    =   array();
-            $map['_string']   =   $where;
+            $map    =   array();	//作为临时存储变量
+            $map['_string']   =   $where;  //将字符串参数赋值给了'_string'
             $where  =   $map;
         }        
-        if(isset($this->options['where'])){
+        if(isset($this->options['where'])){	//支持多个where()，使用的是array_merge()，来合并where数组
             $this->options['where'] =   array_merge($this->options['where'],$where);
         }else{
             $this->options['where'] =   $where;
@@ -1616,6 +1628,8 @@ class Model {
 
     /**
      * 指定查询数量
+     * 将其实位置和查询数量拼接成由逗号分隔的字符串，给属性options['limit']赋值
+     * 不一定要有长度
      * @access public
      * @param mixed $offset 起始位置
      * @param mixed $length 查询数量

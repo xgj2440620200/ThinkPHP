@@ -22,6 +22,7 @@ class Mysqli extends Db{
      * @param array $config 数据库配置数组
      */
     public function __construct($config=''){
+    	//extendsion_loaded——检查一个扩展是否已经加载
         if ( !extension_loaded('mysqli') ) {
             E(L('_NOT_SUPPERT_').':mysqli');
         }
@@ -200,16 +201,37 @@ class Mysqli extends Db{
 
     /**
      * 取得数据表的字段信息
+     * 1.通过mysqli扩展执行一个'showcolumns from tablename'的查询获取字段信息
+     * 2.对获取到的列信息进行遍历，组成有字段名作为键和字段信息的关联数组组成的二维数组。
      * @access public
      * @return array
      */
     public function getFields($tableName) {
+    	/*$result中是表中每个字段的信息的数组，其中:"Field">>>字段名，"Type">>>字段类型，"Null">>>是否为null,"Key">>>键，"Default">>>默认值,"Extra">>>额外说明，弱主键
+    	 * array(12) {
+			  [0]=>
+			  array(6) {
+			    ["Field"]=>
+			    string(2) "id"
+			    ["Type"]=>
+			    string(16) "int(10) unsigned"
+			    ["Null"]=>
+			    string(2) "NO"
+			    ["Key"]=>
+			    string(3) "PRI"
+			    ["Default"]=>
+			    NULL
+			    ["Extra"]=>
+			    string(14) "auto_increment"
+			  }
+			  }
+    	 */
         $result =   $this->query('SHOW COLUMNS FROM '.$this->parseKey($tableName));
-        $info   =   array();
+        $info   =   array(); //要组成一个由字段名为键，字段信息为数组的二维数组。
         if($result) {
             foreach ($result as $key => $val) {
                 $info[$val['Field']] = array(
-                    'name'    => $val['Field'],
+                    'name'    => $val['Field'],  //之所以还要加个name，是为了方便操作数据表的字段信息，而不是要用键名当作段名。
                     'type'    => $val['Type'],
                     'notnull' => (bool) ($val['Null'] === ''), // not null is empty, null is yes
                     'default' => $val['Default'],
@@ -329,6 +351,9 @@ class Mysqli extends Db{
 
     /**
      * 字段和表名处理添加`
+     * 使用了trim，所以在输入字段名或表名的时候，不必要担心空格会造成影响。
+     * 在正则表达式没有匹配到\',\",\*，\(\)`的时候，才在字段名或表名的首尾加上`
+     * 用地址传递参数。
      * @access protected
      * @param string $key
      * @return string

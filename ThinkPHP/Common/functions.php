@@ -525,6 +525,7 @@ function M($name='', $tablePrefix='',$connection='') {
     }
     /*$guid>>>'Config_Think\Model'。作为键名
      *$name>>>'Config'
+     *$class>>>'Think\\Model'
      */
     $guid           =   (is_array($connection)?implode('',$connection):$connection).$tablePrefix . $name . '_' . $class;
     if (!isset($_model[$guid])) //具有单例功能
@@ -1013,36 +1014,38 @@ function S($name,$value='',$options=null) {
 
 /**
  * 快速文件数据读取和保存 针对简单类型数据 字符串、数组
+ * 缓存类型是文件，后缀为'.php'，同时用一个静态变量存放缓存数据。
+ * 删除缓存、缓存数据、读取缓存数据
  * @param string $name 缓存名称
  * @param mixed $value 缓存值
  * @param string $path 缓存路径
  * @return mixed
  */
 function F($name, $value='', $path=DATA_PATH) {
-    static $_cache  =   array();
-    $filename       =   $path . $name . '.php';
-    if ('' !== $value) {
-        if (is_null($value)) {
+    static $_cache  =   array(); //用于快速读取缓存
+    $filename       =   $path . $name . '.php'; //文件缓存
+    if ('' !== $value) {  //如果不是'',那么就是缓存数据或者删除缓存
+        if (is_null($value)) { //null是删除缓存
             // 删除缓存
-            if(false !== strpos($name,'*')){
+            if(false !== strpos($name,'*')){  //DBUEG>>>'*'的作用？
                 return false; // TODO 
             }else{
-                unset($_cache[$name]);
-                return Think\Storage::unlink($filename,'F');
+                unset($_cache[$name]);  //先删除内存中的对应缓存
+                return Think\Storage::unlink($filename,'F');  //删除对应缓存的文件
             }
         } else {
-            Think\Storage::put($filename,serialize($value),'F');
+            Think\Storage::put($filename,serialize($value),'F'); //将缓存内容序列化后写入文件，'F'并没有什么用
             // 缓存数据
-            $_cache[$name]  =   $value;
+            $_cache[$name]  =   $value; //将内容存在内存中
             return ;
         }
     }
     // 获取缓存数据
-    if (isset($_cache[$name]))
+    if (isset($_cache[$name]))  //优先获取内存中的缓存
         return $_cache[$name];
     if (Think\Storage::has($filename,'F')){
         $value      =   unserialize(Think\Storage::read($filename,'F'));
-        $_cache[$name]  =   $value;
+        $_cache[$name]  =   $value;  //从文件中读取的缓存数据放到内存中
     } else {
         $value          =   false;
     }
