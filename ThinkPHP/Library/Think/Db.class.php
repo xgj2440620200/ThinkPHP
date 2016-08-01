@@ -314,6 +314,7 @@ class Db {
 
     /**
      * set分析
+     * $data转换成'SET a=b,c=d'的形式
      * @access protected
      * @param array $data
      * @return string
@@ -371,20 +372,26 @@ class Db {
     
     /**
      * value分析
+     * 字符串就用单引号加反斜线处理
+     * 布尔转换成'1'或'0'
+     * null转换成'null'
      * @access protected
      * @param mixed $value
      * @return string
      */
     protected function parseValue($value) {
         if(is_string($value)) {
+        	//单引号加反斜线
             $value =  '\''.$this->escapeString($value).'\'';
         }elseif(isset($value[0]) && is_string($value[0]) && strtolower($value[0]) == 'exp'){
             $value =  $this->escapeString($value[1]);
         }elseif(is_array($value)) {
             $value =  array_map(array($this, 'parseValue'),$value);
         }elseif(is_bool($value)){
+        	//bool>>>'1'或'0'
             $value =  $value ? '1' : '0';
         }elseif(is_null($value)){
+        	//NULL>>>'null'
             $value =  'null';
         }
         return $value;
@@ -458,41 +465,57 @@ class Db {
      * @return string
      */
     protected function parseWhere($where) {
+    	/*
+    	 * $where>>>array(
+    	 * 	'id|name' => array(
+    	 * 		1, 'pax', '_multi' => true
+    	 * 	)	
+    	 * )
+    	 */
         $whereStr = '';
-        if(is_string($where)) {
+        if(is_string($where)) {	//字符串是直接使用的，那么解析效率会高些，但是如果条件复杂就不方便书写
             // 直接使用字符串条件
             $whereStr = $where;
-        }else{ // 使用数组表达式
-            $operate  = isset($where['_logic'])?strtoupper($where['_logic']):'';
+        }else{ // 使用数组表达式。这是使用比较多的
+            $operate  = isset($where['_logic'])?strtoupper($where['_logic']):'';	//'_logic'是指逻辑运算，与、或亦或等。转换成大写，是因为sql关键一般大写
             if(in_array($operate,array('AND','OR','XOR'))){
                 // 定义逻辑运算规则 例如 OR XOR AND NOT
-                $operate    =   ' '.$operate.' ';
-                unset($where['_logic']);
+                $operate    =   ' '.$operate.' ';	
+                unset($where['_logic']);	//销毁变量
             }else{
                 // 默认进行 AND 运算
                 $operate    =   ' AND ';
             }
             foreach ($where as $key=>$val){
                 $whereStr .= '( ';
+                //is_numeric——检查变量是否为数字或数字字符串
                 if(is_numeric($key)){
-                    $key  = '_complex';
+                    $key  = '_complex';	//复合查询
                 }                    
                 if(0===strpos($key,'_')) {
-                    // 解析特殊条件表达式
                     $whereStr   .= $this->parseThinkWhere($key,$val);
                 }else{
-                    // 查询字段的安全过滤
-                    if(!preg_match('/^[A-Z_\|\&\-.a-z0-9\(\)\,]+$/',trim($key))){
+                    // 查询字段的安全过滤，根据mysql的字段命名规则来检查字段名
+                    if(!preg_match('/^[A-Z_\|\&\-.a-z0-9\(\)\,]+$/',trim($key))){	//检查字段名的命名规则
                         E(L('_EXPRESS_ERROR_').':'.$key);
                     }
                     // 多条件支持
-                    $multi  = is_array($val) &&  isset($val['_multi']);
+                    //$multi>>>false
+                    $multi  = is_array($val) &&  isset($val['_multi']);	//判断条件比较长时，可以用这种方式
                     $key    = trim($key);
                     if(strpos($key,'|')) { // 支持 name|title|nickname 方式定义查询字段
-                        $array =  explode('|',$key);
+                    	/*
+                    	 * $where>>>array(
+                    	 * 		'id|name' => array(
+                    	 * 			1, 'pax', '_multi' => true
+                    	 * 	)
+                    	 * )
+                    	 */
+                        $array =  explode('|',$key);	//因为这，所以'|'和'&'不能同时使用，否则会出现字段错误
                         $str   =  array();
-                        foreach ($array as $m=>$k){
-                            $v =  $multi?$val[$m]:$val;
+                        foreach ($array as $m=>$k){	//$m是数组索引，$k是字段名
+                            $v =  $multi?$val[$m]:$val;	//$v是字段值
+                            //TODO
                             $str[]   = '('.$this->parseWhereItem($this->parseKey($k),$v).')';
                         }
                         $whereStr .= implode(' OR ',$str);
@@ -586,6 +609,10 @@ class Db {
 
     /**
      * 特殊条件分析
+     * 只支持3个：'_string','_complex','_query'
+     * '_string'：直接返回字符串
+     * '_complex':递归调用parseWhere()，知道条件是转换成字符串
+     * '_query':使用parse_str()解析，用逻辑运算符作为implode()的分隔符，获得一个字符串
      * @access protected
      * @param string $key
      * @param mixed $val
@@ -596,14 +623,15 @@ class Db {
         switch($key) {
             case '_string':
                 // 字符串模式查询条件
-                $whereStr = $val;
+                $whereStr = $val;	//字符串形式直接使用
                 break;
             case '_complex':
-                // 复合查询条件
+                // 复合查询条件。递归调用parseWhere(),知道值是变成了字符串
                 $whereStr   =   is_string($val)? $val : substr($this->parseWhere($val),6);
                 break;
             case '_query':
                 // 字符串模式查询条件
+                //parse_str()——用类似解析url中参数的形式解析字符串，并赋值给变量
                 parse_str($val,$where);
                 if(isset($where['_logic'])) {
                     $op   =  ' '.strtoupper($where['_logic']).' ';
@@ -614,7 +642,7 @@ class Db {
                 $array   =  array();
                 foreach ($where as $field=>$data)
                     $array[] = $this->parseKey($field).' = '.$this->parseValue($data);
-                $whereStr   = implode($op,$array);
+                $whereStr   = implode($op,$array);	//用' AND '当作了分隔符
                 break;
         }
         return $whereStr;
@@ -821,7 +849,8 @@ class Db {
         $this->model  =   $options['model'];
         $sql   = 'UPDATE '
             .$this->parseTable($options['table'])
-            .$this->parseSet($data)
+            .$this->parseSet($data)	//$data是一个关联数组，转传承'SET a=b,c=d'形式的字符串
+            //TODO
             .$this->parseWhere(!empty($options['where'])?$options['where']:'')
             .$this->parseOrder(!empty($options['order'])?$options['order']:'')
             .$this->parseLimit(!empty($options['limit'])?$options['limit']:'')
@@ -955,6 +984,7 @@ class Db {
      * @return string
      */
     public function escapeString($str) {
+    	//addslashes——使用反斜线引用字符串，是为了数据库查询语句等的需要
         return addslashes($str);
     }
 

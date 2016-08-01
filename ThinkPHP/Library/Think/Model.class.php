@@ -244,6 +244,10 @@ class Model {
 
     /**
      * 对保存到数据库的数据进行处理
+     * 1.获取待检查的字段数获取表的全部字段
+     * 2.对每个字段进行是否存在的判断和销毁，字段类型检测和强制转换
+     * 3.如果设置了optinos['filer']，就通过options['filter']和array_map()进行安全过滤
+     * 4.返回检查后的数据
      * @access protected
      * @param mixed $data 要操作的数据
      * @return boolean
@@ -270,18 +274,17 @@ class Model {
                      */
                 }elseif(is_scalar($val)) {
                     // 字段类型检查 和 强制转换。一般数据表中都是整形、浮点型、字符串，没有其他结构。对于数组、对象等结构，序列化后，可以存放到数据表中
-                    //TODO
                     $this->_parseType($data,$key);
                 }
             }
         }
        
-        // 安全过滤
-        if(!empty($this->options['filter'])) {
+        // 安全过滤，使用回调函数对$data进行处理，并销毁$this->optinos['filter']
+        if(!empty($this->options['filter'])) {	//debug>>>哪里使用的
             $data = array_map($this->options['filter'],$data);
             unset($this->options['filter']);
         }
-        $this->_before_write($data);
+        $this->_before_write($data);	//需要在自定义模型中实现
         return $data;
      }
 
@@ -321,18 +324,21 @@ class Model {
             return false;
         }
         // 写入数据到数据库
-        //TODO
-        $result = $this->db->insert($data,$options,$replace);
+        //$this->db>>>'Think\Db\Driver\Mysqli'
+        $result = $this->db->insert($data,$options,$replace);	//返回的是记录数
+        //自增主键返回插入ID
         if(false !== $result ) {
+        	//获取最后插入记录的编号
             $insertId   =   $this->getLastInsID();
             if($insertId) {
                 // 自增主键返回插入ID
                 $data[$this->getPk()]  = $insertId;
-                $this->_after_insert($data,$options);
+                $this->_after_insert($data,$options);	//需要在自定义模型中实现
                 return $insertId;
             }
-            $this->_after_insert($data,$options);
+            $this->_after_insert($data,$options);	//要在自定义模型中实现
         }
+        //非自增主键返回结果集数量
         return $result;
     }
     // 插入数据前的回调方法
@@ -340,19 +346,33 @@ class Model {
     // 插入成功后的回调方法
     protected function _after_insert($data,$options) {}
 
+    /**
+     * 批量添加
+     * 1.判断$datalist是否为空，空则包“无效数据类型”错误
+     * 2.分析$optinos表达式，合并options属性
+     * 3.对数据的字段、类型进行检测，如果有options['filter']，就进行回调安全过滤
+     * 4.调用mysqli类中的insertAll()进行批量添加
+     * 5.返回最后插入的记录编号或者插入的记录数
+     * @params array $datalist  必须二维数组，否则直接返回false
+     * @params array $options	  参数表达式，可以为空
+     * @params bool $replace 相同的记录是否替换
+     * @return int 最后插入记录的编号或者影响的记录数 
+     */
     public function addAll($dataList,$options=array(),$replace=false){
         if(empty($dataList)) {
-            $this->error = L('_DATA_TYPE_INVALID_');
+            $this->error = L('_DATA_TYPE_INVALID_');	//无效的数据类型
             return false;
         }
-        // 分析表达式
+        // 分析表达式，合并options属性
         $options =  $this->_parseOptions($options);
         // 数据处理
         foreach ($dataList as $key=>$data){
+        	//对数据字段、类型进行检测，如果有optinos['filter']，通过回调进行安全过滤
             $dataList[$key] = $this->_facade($data);
         }
         // 写入数据到数据库
         $result = $this->db->insertAll($dataList,$options,$replace);
+        //返回最后插入的记录编号或者插入的记录数
         if(false !== $result ) {
             $insertId   =   $this->getLastInsID();
             if($insertId) {
@@ -392,7 +412,7 @@ class Model {
      * @return boolean
      */
     public function save($data='',$options=array()) {
-        if(empty($data)) {
+        if(empty($data)) {	//如果用对象，要多一步解析操作
             // 没有传递数据，获取当前数据对象的值
             if(!empty($this->data)) {
                 $data           =   $this->data;
@@ -410,22 +430,24 @@ class Model {
         $pk         =   $this->getPk();
         if(!isset($options['where']) ) {
             // 如果存在主键数据 则自动作为更新条件
-            if(isset($data[$pk])) {
+            if(isset($data[$pk])) {	//如果数据集中有主键的字段名，可以不需调用where(),通过获取data中的主键值，来新增一个where元素
                 $where[$pk]         =   $data[$pk];
                 $options['where']   =   $where;
-                unset($data[$pk]);
+                unset($data[$pk]);	//释放内存
             }else{
                 // 如果没有任何更新条件则不执行
+                //L('_OPERATION_WRONG_')>>>'操作出现错误'
                 $this->error        =   L('_OPERATION_WRONG_');
                 return false;
             }
         }
         if(is_array($options['where']) && isset($options['where'][$pk])){
-            $pkValue    =   $options['where'][$pk];
+            $pkValue    =   $options['where'][$pk];	//获取主键值
         }        
-        if(false === $this->_before_update($data,$options)) {
+        if(false === $this->_before_update($data,$options)) {	//自定义模型中实现
             return false;
         }        
+        //TODO
         $result     =   $this->db->update($data,$options);
         if(false !== $result) {
             if(isset($pkValue)) $data[$pk]   =  $pkValue;

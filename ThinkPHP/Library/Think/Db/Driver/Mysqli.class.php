@@ -305,6 +305,11 @@ class Mysqli extends Db{
 
     /**
      * 插入记录
+     * 将数据拼接成insert..value(),(),()……形式的字符串，并执行
+     * 1.获取字段，并对字段进行检车
+     * 2.遍历数据的二维数组，对值进行转换，过滤非标量，组成一个sql的value()形式的字符串
+     * 3.将上一步的数组拼接成insert...value(),(),()形式字符串的sql语句
+     * 4.执行sql语句
      * @access public
      * @param mixed $datas 数据
      * @param array $options 参数表达式
@@ -312,13 +317,14 @@ class Mysqli extends Db{
      * @return false | integer
      */
     public function insertAll($datas,$options=array(),$replace=false) {
-        if(!is_array($datas[0])) return false;
+        if(!is_array($datas[0])) return false;	//必须是一个二维数组
         $fields = array_keys($datas[0]);
-        array_walk($fields, array($this, 'parseKey'));
+        array_walk($fields, array($this, 'parseKey'));	//进行字段名和表名的检测，并没有具体意义
         $values  =  array();
         foreach ($datas as $data){
             $value   =  array();
             foreach ($data as $key=>$val){
+            	//对字符串、布尔、null进行转化
                 $val   =  $this->parseValue($val);
                 if(is_scalar($val)) { // 过滤非标量数据
                     $value[]   =  $val;
