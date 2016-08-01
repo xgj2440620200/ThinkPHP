@@ -62,15 +62,24 @@ class Mysqli extends Db{
 
     /**
      * 释放查询结果
+     * 调用数据库驱动的free_result()，这里是mysqli。并设置$this->queryID为NULL.
      * @access public
      */
     public function free() {
+    	//Mysqli的查询结果集是一个类，$this->queryID是mysqli_result的实例
         $this->queryID->free_result();
         $this->queryID = null;
     }
 
     /**
      * 执行查询 返回数据集
+     * 1.初始化数据库连接
+     * 2.释放前次的查询结果，即属性queryID，它是mysqli_result实例
+     * 3.统计执行次数、记录开始执行时间
+     * 4.执行mysqli的query()，并将结果集实例赋值给属性queryID
+     * 5.debug>>>改进存储过程
+     * 6.执行debug()，trace()执行的sql语句和所用时间
+     * 7.如果sql出错则执行error()，来trac()sql语句和错误；否则，返回查询结果集中的记录数和得到的字段数
      * @access public
      * @param string $str  sql指令
      * @return mixed
@@ -81,14 +90,15 @@ class Mysqli extends Db{
         $this->queryStr = $str;
         //释放前次的查询结果
         if ( $this->queryID ) $this->free();
+        //统计执行次数
         N('db_query',1);
         // 记录开始执行时间
         G('queryStartTime');
-        $this->queryID = $this->_linkID->query($str);
-        // 对存储过程改进
+        $this->queryID = $this->_linkID->query($str);	//queryID属性是在这里赋值的,是返回的结果集类实例
+        // 对存储过程改进debug>>>这叫改进？
         if( $this->_linkID->more_results() ){
             while (($res = $this->_linkID->next_result()) != NULL) {
-                $res->free_result();
+                $res->free_result();	//释放数据集所占有的内存
             }
         }
         $this->debug();
@@ -96,34 +106,45 @@ class Mysqli extends Db{
             $this->error();
             return false;
         } else {
-            $this->numRows  = $this->queryID->num_rows;
-            $this->numCols    = $this->queryID->field_count;
+            $this->numRows  = $this->queryID->num_rows;	//返回语句结果集中的函数
+            $this->numCols    = $this->queryID->field_count;	//返回给定语句得到的字段数量
             return $this->getAll();
         }
     }
 
     /**
      * 执行语句
+     * 1.初始化数据库连接
+     * 2.释放上次的查询结果
+     * 3.开始统计执行次数、记录开始执行时间
+     * 4.执行mysqli扩展的query()，执行sql语句
+     * 5.调用debug(),sql出错，如果开启了SQL日志记录，将执行的sql语句和时间拼接
+     * 6.sql执行成功，赋值属性numRows和lastInsID,返回影响的记录数
+     * 因为在sql执行成功后，调用了mysqli扩展的affected_rows()和insert_id()，所以，如果执行查询，会报错，因为它没有那两个方法
      * @access public
      * @param string $str  sql指令
      * @return integer
      */
     public function execute($str) {
         $this->initConnect(true);
-        if ( !$this->_linkID ) return false;
+        if ( !$this->_linkID ) return false;	//连接数据库失败
         $this->queryStr = $str;
         //释放前次的查询结果
+        //统计执行次数
         if ( $this->queryID ) $this->free();
         N('db_write',1);
         // 记录开始执行时间
         G('queryStartTime');
+        //$this->_linkID>>>mysqli的实例
         $result =   $this->_linkID->query($str);
+        //如果开启了SQL日志记录，将执行的sql语句和时间拼接,使用trace()
         $this->debug();
         if ( false === $result ) {
+        	//获取错误编号、错误信息、sql语句组成的数组，赋值给属性error
             $this->error();
             return false;
         } else {
-            $this->numRows = $this->_linkID->affected_rows;
+            $this->numRows = $this->_linkID->affected_rows;	//查询是不能执行affected_rows()和insert_id()的，所以会报错
             $this->lastInsID = $this->_linkID->insert_id;
             return $this->numRows;
         }
@@ -182,6 +203,8 @@ class Mysqli extends Db{
 
     /**
      * 获得所有的查询数据
+     * 通过msyqli_result的fetch_assoc()来获取数据，并重置queryID的指针位置，返回一个由结果组成的二维数组
+     * 从mysqli_result类例中获取数据
      * @access private
      * @param string $sql  sql语句
      * @return array
@@ -192,9 +215,10 @@ class Mysqli extends Db{
         if($this->numRows>0) {
             //返回数据集
             for($i=0;$i<$this->numRows ;$i++ ){
-                $result[$i] = $this->queryID->fetch_assoc();
+            	//queryID是mysqli_result实例
+                $result[$i] = $this->queryID->fetch_assoc();	//获取一行结果记录作为关联数组
             }
-            $this->queryID->data_seek(0);
+            $this->queryID->data_seek(0);	//将指针指向结果集的任意行上。这里是重置指针
         }
         return $result;
     }
@@ -321,6 +345,7 @@ class Mysqli extends Db{
     /**
      * 数据库错误信息
      * 并显示当前的SQL语句
+     * 通过mysqli的errno和error属性获取错误编号和错误信息，拼接上查询语句，赋值给Mysqli的error
      * @static
      * @access public
      * @return string

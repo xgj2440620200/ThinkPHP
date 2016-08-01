@@ -100,7 +100,6 @@ class Model {
         // 获取数据库操作对象
         // 当前模型有独立的数据库连接信息
         // 获取了字段信息
-        //TODO
         $this->db(0,empty($this->connection)?$connection:$this->connection,true);  //单例功能
     }
 
@@ -154,7 +153,7 @@ class Model {
                 if($val['autoinc']) $this->autoinc   =   true;
             }
         }
-        // 记录字段类型信息
+        // 记录字段类型信息，$this->fields['_tyep']是一个字段类型组成的数组
         $this->fields['_type'] =  $type; //$type是个数组
 
         // 2008-3-7 增加缓存开关控制
@@ -255,18 +254,23 @@ class Model {
         if(!empty($this->fields)) {
             if(!empty($this->options['field'])) {
                 $fields =   $this->options['field'];
-                unset($this->options['field']);
-                if(is_string($fields)) {
+                unset($this->options['field']);	//主动释放了属性options的内存
+                if(is_string($fields)) {	//将字符串形式转化成数组形式
                     $fields =   explode(',',$fields);
                 }    
-            }else{
+            }else{	//没有使用filed()，就默认检查所有字段
                 $fields =   $this->fields;
             }        
             foreach ($data as $key=>$val){
-                if(!in_array($key,$fields,true)){
+                if(!in_array($key,$fields,true)){	//对于不存在数据表中的字段，进行unset()。所以，在用add()时，不必担心添加了数据表字段之外或者错误字段
                     unset($data[$key]);
+                    /*
+                     * is_scalar——检测变量是否是一个标量
+                     * 标量变量包括integer、float、string或boolean的变量，而array、object和resource则不是标量
+                     */
                 }elseif(is_scalar($val)) {
-                    // 字段类型检查 和 强制转换
+                    // 字段类型检查 和 强制转换。一般数据表中都是整形、浮点型、字符串，没有其他结构。对于数组、对象等结构，序列化后，可以存放到数据表中
+                    //TODO
                     $this->_parseType($data,$key);
                 }
             }
@@ -293,25 +297,31 @@ class Model {
      * @return mixed
      */
     public function add($data='',$options=array(),$replace=false) {
-        if(empty($data)) {
+        if(empty($data)) {	//通过判断是否专递$data参数来分辨是否使用对象
             // 没有传递数据，获取当前数据对象的值
-            if(!empty($this->data)) {
+            if(!empty($this->data)) {	//data属性用来存放数据
                 $data           =   $this->data;
                 // 重置数据
-                $this->data     = array();
+                $this->data     = array();	//在取值后就将数组中的数据释放了，算是个优化，自己不必在控制器中手动清除对象中使用过的数据
             }else{
+            	//L('_DATA_TYPE_INVALID_')>>>"非法数据对象！"
+            	//给error属性赋值
                 $this->error    = L('_DATA_TYPE_INVALID_');
                 return false;
             }
         }
         // 分析表达式
-        $options    =   $this->_parseOptions($options);
+        //虽然$options为空数组，但是在_parseOptinos()中用array_merge()合并了options属性和$options
+        $options    =   $this->_parseOptions($options);	//一般不再add()中添加表达式
         // 数据处理
+        //根据数据表的字段类型，对添加的数据进行类型检测，并强制转换其类型
         $data       =   $this->_facade($data);
+        //_before_insert()方法为空，需要在自定义模型中实现
         if(false === $this->_before_insert($data,$options)) {
             return false;
         }
         // 写入数据到数据库
+        //TODO
         $result = $this->db->insert($data,$options,$replace);
         if(false !== $result ) {
             $insertId   =   $this->getLastInsID();
@@ -545,7 +555,7 @@ class Model {
      * @return array
      */
     protected function _parseOptions($options=array()) {
-        if(is_array($options))
+        if(is_array($options)) //
             $options =  array_merge($this->options,$options);
 
         if(!isset($options['table'])){
@@ -588,17 +598,20 @@ class Model {
     protected function _options_filter(&$options) {}
 
     /**
-     * 数据类型检测
+     * 数据类型检测，并进行转换。在检测的字段类型中，一定进行类型转换操作。
+     * 即使在填充数据的时候写错了数据类型，tp也会根据数据表的对应字段类型，进行转换，用类似intval()、floatval()、(bool)的函数
+     * 检测顺序是:'enum'=>'int'=>'double'=>'boo'，并没有检测字符串类型
      * @access protected
      * @param mixed $data 数据
      * @param string $key 字段名
      * @return void
      */
-    protected function _parseType(&$data,$key) {
-        if(empty($this->options['bind'][':'.$key]) && isset($this->fields['_type'][$key])){
-            $fieldType = strtolower($this->fields['_type'][$key]);
+    protected function _parseType(&$data,$key) { //这里$data是引用传值
+    	//debug>>>bind这个参数是在哪里绑定的？
+        if(empty($this->options['bind'][':'.$key]) && isset($this->fields['_type'][$key])){ //后面一个条件是表的字段类型属性必须设置
+            $fieldType = strtolower($this->fields['_type'][$key]);	//debug>>>把数据表字段类型转换成小写，有必要么？本来不都是小写么
             if(false !== strpos($fieldType,'enum')){
-                // 支持ENUM类型优先检测
+                // 支持ENUM类型优先检测。
             }elseif(false === strpos($fieldType,'bigint') && false !== strpos($fieldType,'int')) {
                 $data[$key]   =  intval($data[$key]);
             }elseif(false !== strpos($fieldType,'float') || false !== strpos($fieldType,'double')){
@@ -1246,6 +1259,7 @@ class Model {
 
     /**
      * 切换当前的数据库连接
+     * 字段类型检测
      * @access public
      * @param integer $linkNum  连接序号
      * @param mixed $config  数据库连接信息

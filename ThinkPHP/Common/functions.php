@@ -83,6 +83,7 @@ function E($msg, $code=0) {
 
 /**
  * 记录和统计时间（微秒）和内存使用情况
+ * 一次只能返回时间或内存中的一种
  * 使用方法:
  * <code>
  * G('begin'); // 记录开始标记位
@@ -105,7 +106,7 @@ function G($start,$end='',$dec=4) {
         $_info[$start]  =   $end;
     }elseif(!empty($end)){ // 统计时间和内存使用
         if(!isset($_info[$end])) $_info[$end]       =  microtime(TRUE);
-        if(MEMORY_LIMIT_ON && $dec=='m'){
+        if(MEMORY_LIMIT_ON && $dec=='m'){	//$dec是来判断返回内存还是时间。
             if(!isset($_mem[$end])) $_mem[$end]     =  memory_get_usage();
             //number_format——以千位分隔符方式格式化一个数字。
             return number_format(($_mem[$end]-$_mem[$start])/1024);
@@ -328,6 +329,7 @@ function array_map_recursive($filter, $data) {
  * 设置和获取统计数据
  * 使用方法:
  * <code>
+ * param1是键，param2是步进值，param3是否使用S()。使用一个静态变量的关联数组来统计，是否有第二个参数来判断读写
  * N('db',1); // 记录数据库操作次数
  * N('read',1); // 记录读取次数
  * echo N('db'); // 获取当前页面数据库的所有操作次数
@@ -337,12 +339,12 @@ function array_map_recursive($filter, $data) {
  * @param integer $step 步进值
  * @return mixed
  */
-function N($key, $step=0,$save=false) {
-    static $_num    = array();
+function N($key, $step=0,$save=false) {	//第二个参数是步进值
+    static $_num    = array();	//静态变量
     if (!isset($_num[$key])) {
-        $_num[$key] = (false !== $save)? S('N_'.$key) :  0;
+        $_num[$key] = (false !== $save)? S('N_'.$key) :  0;	//设置
     }
-    if (empty($step))
+    if (empty($step))	//读取数据
         return $_num[$key];
     else
         $_num[$key] = $_num[$key] + (int) $step;

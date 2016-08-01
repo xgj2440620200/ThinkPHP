@@ -63,7 +63,6 @@ class Db {
 		$guid	=	to_guid_string($db_config); //用的是md5加密
 		if(!isset($_instance[$guid])){
 			$obj	=	new Db();
-			//TODO
 			$_instance[$guid]	=	$obj->factory($db_config);
 		}
 		return $_instance[$guid];
@@ -189,11 +188,13 @@ class Db {
 
     /**
      * 初始化数据库连接
+     * 进行连接操作，并赋值_linkID属性
      * @access protected
      * @param boolean $master 主服务器
      * @return void
      */
     protected function initConnect($master=true) {
+    	//C('DB_DEPLOY_TYPE')>>>0。数据库部署模式：0单一服务器，1主从服务器
         if(1 == C('DB_DEPLOY_TYPE'))
             // 采用分布式数据库
             $this->_linkID = $this->multiConnect($master);
@@ -283,14 +284,17 @@ class Db {
 
     /**
      * 数据库调试 记录当前SQL
+     * 将sql语句与所用时间拼接成字符串，使用trace()
      * @access protected
      */
     protected function debug() {
-        $this->modelSql[$this->model]   =  $this->queryStr;
+        $this->modelSql[$this->model]   =  $this->queryStr;	//通过模型来记录查询语句的
         $this->model  =   '_think_';
         // 记录操作结束时间
+        //C('DB_SQL_LOG')>>>false，SQL执行日志记录
         if (C('DB_SQL_LOG')) {
             G('queryEndTime');
+            //debug>>>这里是否要在使用$this->queryStr后，释放其内存
             trace($this->queryStr.' [ RunTime:'.G('queryStartTime','queryEndTime',6).'s ]','','SQL');
         }
     }
@@ -356,6 +360,7 @@ class Db {
 
     /**
      * 字段名分析
+     * 并没有做任何处理，直接使用return返回了。可以在自定义模型中重载
      * @access protected
      * @param string $key
      * @return string
@@ -417,6 +422,7 @@ class Db {
 
     /**
      * table分析
+     * 分析表名，返回'`onethink_document`'形式的字符串，对参数$tables基本没做处理，具体处理需要在自定义模型中做
      * @access protected
      * @param mixed $table
      * @return string
@@ -432,10 +438,16 @@ class Db {
             }
             $tables  =  $array;
         }elseif(is_string($tables)){
+        	//$tables>>>array('onethink_document')
             $tables  =  explode(',',$tables);
-            array_walk($tables, array(&$this, 'parseKey'));
+            /*array_walk——使用用户自定义函数对数组中的每个元素做回调处理
+             * array_walk()不会受到array内部数组指针的影响。array_walk()会遍历真个数组而不管指针的位置
+             */
+	        array_walk($tables, array(&$this, 'parseKey'));
+	        //$tables>>>array('`onethink_document`')
         }
-        $tables = implode(',',$tables);
+        //$tables>>>'`onethink_document`'
+	    $tables = implode(',',$tables);	//用implode()和explode来进行字符串、数组间的转换
         return $tables;
     }
 
@@ -675,6 +687,7 @@ class Db {
 
     /**
      * comment分析
+     * 将注释内容转放到注释标记中，并返回该字符串
      * @access protected
      * @param string $comment
      * @return string
@@ -722,14 +735,47 @@ class Db {
      * @return false | integer
      */
     public function insert($data,$options=array(),$replace=false) {
-        $values  =  $fields    = array();
+    	header("content-type:text/html;charset=utf-8");
+    	//添加数据
+        $values  =  $fields    = array();	//$data是一个关联数组，$values用来存放值，$fields用来存放字段名
+        //$options['model']>>>'Document'
         $this->model  =   $options['model'];
+        /*
+         * $data => array(
+         * 		["uid"]=>
+				  int(1)
+				  ["name"]=>
+				  string(3) "pax"
+				  ["title"]=>
+				  string(12) "添加文档"
+				  ["category_id"]=>
+				  int(2)
+				  ["description"]=>
+				  string(23) "给ot进行注释条件"
+				  ["root"]=>
+				  int(0)
+				  ["pid"]=>
+				  int(0)
+				  ["type"]=>
+				  int(2)
+				  ["position"]=>
+				  int(0)
+				  ["link_id"]=>
+				  int(0)
+				  ["cover_id"]=>
+				  int(0)
+				  ["display"]=>
+				  int(1)
+         * ) 
+         */
+        //对$values和$fields进行赋值。没有用array_keys()和array_values()来简化操作，是因为存在不同的 情况，要附加不同的操作
         foreach ($data as $key=>$val){
             if(is_array($val) && 'exp' == $val[0]){
                 $fields[]   =  $this->parseKey($key);
                 $values[]   =  $val[1];
-            }elseif(is_scalar($val) || is_null($val)) { // 过滤非标量数据
+            }elseif(is_scalar($val) || is_null($val)) { // 过滤非标量数据。对非标量数据进行了过滤，所以在填充数据的时候，要先对非标量数据进行序列化处理
               $fields[]   =  $this->parseKey($key);
+              //C('DB_BIND_PARAM')>>>数据库写入数据自动参数绑定，默认false
               if(C('DB_BIND_PARAM') && 0 !== strpos($val,':')){
                 $name       =   md5($key);
                 $values[]   =   ':'.$name;
@@ -739,9 +785,11 @@ class Db {
               }                
             }
         }
+        //用表名、字段名、字段值拼接一个insert的sql语句
         $sql   =  ($replace?'REPLACE':'INSERT').' INTO '.$this->parseTable($options['table']).' ('.implode(',', $fields).') VALUES ('.implode(',', $values).')';
         $sql   .= $this->parseLock(isset($options['lock'])?$options['lock']:false);
         $sql   .= $this->parseComment(!empty($options['comment'])?$options['comment']:'');
+        //TODO。debug>>>调用的是驱动的execute()，但是不知道为什么可以
         return $this->execute($sql,$this->parseBind(!empty($options['bind'])?$options['bind']:array()));
     }
 
