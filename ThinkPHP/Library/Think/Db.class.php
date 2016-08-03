@@ -539,45 +539,56 @@ class Db {
     }
 
     // where子单元分析
+    /**
+     * $key>>>带反引号的字段名
+     * $val>>>是字段名对应的值 
+     * 1.判断数组还是字符串
+     * 2.若是数组，就用preg_match()来验证各种查询表达式的关键字，通过了才能进一步处理，按sql书写规则拼接条件字符串
+     * 3.若是字符串，直接拼接成条件字符串
+     * 注意：在拼写的时候全部框架自己加了空格
+     */
     protected function parseWhereItem($key,$val) {
         $whereStr = '';
-        if(is_array($val)) {
+        if(is_array($val)) { //限制条件是数组
             if(is_string($val[0])) {
-                if(preg_match('/^(EQ|NEQ|GT|EGT|LT|ELT)$/i',$val[0])) { // 比较运算
+                if(preg_match('/^(EQ|NEQ|GT|EGT|LT|ELT)$/i',$val[0])) { // 比较运算，没有区分大小写。array('eq', 2)
+                	//$this->comparsion>>>一个数据库表达式转换数组，array('eq'=>'=','neq'=>'<>'...)
                     $whereStr .= $key.' '.$this->comparison[strtolower($val[0])].' '.$this->parseValue($val[1]);
-                }elseif(preg_match('/^(NOTLIKE|LIKE)$/i',$val[0])){// 模糊查找
-                    if(is_array($val[1])) {
-                        $likeLogic  =   isset($val[2])?strtoupper($val[2]):'OR';
-                        if(in_array($likeLogic,array('AND','OR','XOR'))){
+                }elseif(preg_match('/^(NOTLIKE|LIKE)$/i',$val[0])){// 模糊查找。array('like', '%ad%')
+                    if(is_array($val[1])) {	//array('like',array('%think%', '%tp),'OR')
+                        $likeLogic  =   isset($val[2])?strtoupper($val[2]):'OR';	//两个模糊查询，默认是'OR'
+                        if(in_array($likeLogic,array('AND','OR','XOR'))){	//过滤两个模糊查询的逻辑运算符
                             $likeStr    =   $this->comparison[strtolower($val[0])];
                             $like       =   array();
                             foreach ($val[1] as $item){
                                 $like[] = $key.' '.$likeStr.' '.$this->parseValue($item);
                             }
-                            $whereStr .= '('.implode(' '.$likeLogic.' ',$like).')';                          
+                            $whereStr .= '('.implode(' '.$likeLogic.' ',$like).')';	//拼接条件字符串                          
                         }
                     }else{
-                        $whereStr .= $key.' '.$this->comparison[strtolower($val[0])].' '.$this->parseValue($val[1]);
+                        $whereStr .= $key.' '.$this->comparison[strtolower($val[0])].' '.$this->parseValue($val[1]);	//拼接条件字符串
                     }
-                }elseif('exp'==strtolower($val[0])){ // 使用表达式
-                    $whereStr .= ' ('.$key.' '.$val[1].') ';
-                }elseif(preg_match('/IN/i',$val[0])){ // IN 运算
-                    if(isset($val[2]) && 'exp'==$val[2]) {
+                }elseif('exp'==strtolower($val[0])){ // 使用表达式。array('exp', '  IN (1,3,8)  ')
+                    $whereStr .= ' ('.$key.' '.$val[1].') ';	//因为拼接字符串的表达式中已经含有空格，所以在实际用时，不用特意加空格
+                }elseif(preg_match('/IN/i',$val[0])){ // IN 运算。array('in', '1,3,8')
+                    if(isset($val[2]) && 'exp'==$val[2]) {	//debug
                         $whereStr .= $key.' '.strtoupper($val[0]).' '.$val[1];
                     }else{
-                        if(is_string($val[1])) {
+                        if(is_string($val[1])) {	//字符串也转换成了数组形式，因为要做值的分析。所以，直接用数组好点
                              $val[1] =  explode(',',$val[1]);
-                        }
-                        $zone      =   implode(',',$this->parseValue($val[1]));
+                        }	
+                        $zone      =   implode(',',$this->parseValue($val[1])); //对值进行过滤
                         $whereStr .= $key.' '.strtoupper($val[0]).' ('.$zone.')';
                     }
-                }elseif(preg_match('/BETWEEN/i',$val[0])){ // BETWEEN运算
+                }elseif(preg_match('/BETWEEN/i',$val[0])){ // BETWEEN运算。array('between', array('1', '8'))
                     $data = is_string($val[1])? explode(',',$val[1]):$val[1];
                     $whereStr .=  ' ('.$key.' '.strtoupper($val[0]).' '.$this->parseValue($data[0]).' AND '.$this->parseValue($data[1]).' )';
                 }else{
+                	//L('_EXPRESS_ERROR_')>>>'表达式错误'。就是'eq'、'exp'等字符串写错了，没有用正则表达式匹配到
                     E(L('_EXPRESS_ERROR_').':'.$val[0]);
                 }
-            }else {
+            }else {	//用的少
+            	//array(array('like', '%a'), array('gt', 1)
                 $count = count($val);
                 $rule  = isset($val[$count-1]) ? (is_array($val[$count-1]) ? strtoupper($val[$count-1][0]) : strtoupper($val[$count-1]) ) : '' ; 
                 if(in_array($rule,array('AND','OR','XOR'))) {
@@ -597,11 +608,12 @@ class Db {
             }
         }else {
             //对字符串类型字段采用模糊匹配
+            //C('DB_LIKE_FIELDS')在配置文件中并没有这个，是动态添加的
             if(C('DB_LIKE_FIELDS') && preg_match('/('.C('DB_LIKE_FIELDS').')/i',$key)) {
                 $val  =  '%'.$val.'%';
                 $whereStr .= $key.' LIKE '.$this->parseValue($val);
             }else {
-                $whereStr .= $key.' = '.$this->parseValue($val);
+                $whereStr .= $key.' = '.$this->parseValue($val);	//字符串是直接拼接的，不用做各种处理，比较快。但是增加了sql书写难度，让代码变的复杂
             }
         }
         return $whereStr;
