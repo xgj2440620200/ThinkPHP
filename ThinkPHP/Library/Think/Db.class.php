@@ -301,6 +301,8 @@ class Db {
 
     /**
      * 设置锁机制
+     * mysql只支持 'FOR UPDATE'的锁表
+     * 返回一个字符串 ' FOR UPDATE '
      * @access protected
      * @return string
      */
@@ -399,15 +401,18 @@ class Db {
 
     /**
      * field分析
+     * 生成字段名、字段别名连接成的字符串，支持数组和字符串形式的参数。
+     * 数组形式参数会省去字符串的处理，方便别名的定义
      * @access protected
      * @param mixed $fields
      * @return string
      */
     protected function parseField($fields) {
+    	//$fields>>>'type,name,value'
         if(is_string($fields) && strpos($fields,',')) {
             $fields    = explode(',',$fields);
         }
-        if(is_array($fields)) {
+        if(is_array($fields)) {	//这个数组可以是上一步生成的。$fields如果是数组，那么久不用上一步的字符串解析，还方便定义别名
             // 完善数组方式传字段名的支持
             // 支持 'field1'=>'field2' 这样的字段别名定义
             $array   =  array();
@@ -418,7 +423,7 @@ class Db {
                     $array[] =  $this->parseKey($field);
             }
             $fieldsStr = implode(',', $array);
-        }elseif(is_string($fields) && !empty($fields)) {
+        }elseif(is_string($fields) && !empty($fields)) { //只有一个字段，因为第一对字符串形式参数进行过处理，转换为数组
             $fieldsStr = $this->parseKey($fields);
         }else{
             $fieldsStr = '*';
@@ -460,6 +465,10 @@ class Db {
 
     /**
      * where分析
+     * 1.声明一个$whereStr用于存放解析后的where字符串
+     * 2.字符串形式的$where直接拼接
+     * 3.数组形式，通过嵌套遍历和parseWhereItem()进行解析，拼接，并自动在$whereStr末尾添加一个逻辑运算符，去掉运算符
+     * 4.返回sql标准的where字符串
      * @access protected
      * @param mixed $where
      * @return string
@@ -503,6 +512,7 @@ class Db {
                     //$multi>>>false
                     $multi  = is_array($val) &&  isset($val['_multi']);	//判断条件比较长时，可以用这种方式
                     $key    = trim($key);
+                    //debug>>>为了避免'|'和'&'同时出线，是否先检测一下，通过再继续下去？
                     if(strpos($key,'|')) { // 支持 name|title|nickname 方式定义查询字段
                     	/*
                     	 * $where>>>array(
@@ -515,11 +525,10 @@ class Db {
                         $str   =  array();
                         foreach ($array as $m=>$k){	//$m是数组索引，$k是字段名
                             $v =  $multi?$val[$m]:$val;	//$v是字段值
-                            //TODO
                             $str[]   = '('.$this->parseWhereItem($this->parseKey($k),$v).')';
                         }
-                        $whereStr .= implode(' OR ',$str);
-                    }elseif(strpos($key,'&')){
+                        $whereStr .= implode(' OR ',$str);	//将键名中的'|'用sql的 ' OR '代替
+                    }elseif(strpos($key,'&')){	//'&'的判断。如果同时有'|'和'&'，会导致条件解析两次，并且字段名出线错误，条件的字符串连接两次
                         $array =  explode('&',$key);
                         $str   =  array();
                         foreach ($array as $m=>$k){
@@ -531,15 +540,16 @@ class Db {
                         $whereStr .= $this->parseWhereItem($this->parseKey($key),$val);
                     }
                 }
-                $whereStr .= ' )'.$operate;
+                $whereStr .= ' )'.$operate;	//自动在where末尾连接了一个'AND'、'OR'、'XOR'
             }
-            $whereStr = substr($whereStr,0,-strlen($operate));
+            $whereStr = substr($whereStr,0,-strlen($operate));	//去where字符串后面多余逻辑运算符
         }
         return empty($whereStr)?'':' WHERE '.$whereStr;
     }
 
     // where子单元分析
     /**
+     * 解析where中的每一个字段
      * $key>>>带反引号的字段名
      * $val>>>是字段名对应的值 
      * 1.判断数组还是字符串
@@ -662,12 +672,14 @@ class Db {
 
     /**
      * limit分析
+     * 要解析的sql形式: 'LIMIT 1,2'
+     * 参数的形式：'1,2'
      * @access protected
      * @param mixed $lmit
      * @return string
      */
     protected function parseLimit($limit) {
-        return !empty($limit)?   ' LIMIT '.$limit.' ':'';
+        return !empty($limit)?   ' LIMIT '.$limit.' ':'';	//如果limit()中的参数是空的，那么会返回空字符串，那么计算写了->limit()也不会报错
     }
 
     /**
@@ -686,6 +698,9 @@ class Db {
 
     /**
      * order分析
+     * 将参数转换成字符串形式，拼接'ORDER BY'，返回
+     * 支持一维数组、二维数组、字符串的参数形式
+     * 数组使用foreach()后用implode()拼接成字符串
      * @access protected
      * @param mixed $order
      * @return string
@@ -694,9 +709,9 @@ class Db {
         if(is_array($order)) {
             $array   =  array();
             foreach ($order as $key=>$val){
-                if(is_numeric($key)) {
+                if(is_numeric($key)) {	//一维数组。一维数组并没有使用的必要额，不如直接使用字符串，少了遍历的操作
                     $array[] =  $this->parseKey($val);
-                }else{
+                }else{	//二维数组
                     $array[] =  $this->parseKey($key).' '.$val;
                 }
             }
@@ -738,6 +753,7 @@ class Db {
 
     /**
      * distinct分析
+     * 通过$distinct是否为空，返回' DISTINCT '或者 ''
      * @access protected
      * @param mixed $distinct
      * @return string
@@ -852,6 +868,8 @@ class Db {
 
     /**
      * 更新记录
+     * 参考的sql形式:'UPDATE `tablename` SET a=b,c=d WHERE ... ORDER BY ... LIMIT ... FOR UPDATE COMMENT...'
+     * 逐个关键字进行解析，拼接成sql语句，调用mysqli的execute()，并返回其结果
      * @access public
      * @param mixed $data 数据
      * @param array $options 表达式
@@ -862,7 +880,6 @@ class Db {
         $sql   = 'UPDATE '
             .$this->parseTable($options['table'])
             .$this->parseSet($data)	//$data是一个关联数组，转传承'SET a=b,c=d'形式的字符串
-            //TODO
             .$this->parseWhere(!empty($options['where'])?$options['where']:'')
             .$this->parseOrder(!empty($options['order'])?$options['order']:'')
             .$this->parseLimit(!empty($options['limit'])?$options['limit']:'')
@@ -873,6 +890,8 @@ class Db {
 
     /**
      * 删除记录
+     * 参考sql格式：'DELETE FROM `tableName` WHERE ... ORDER ... LIMIT ... FOR UPDATE COMMENT ...'
+     * 比update()方法要简单，一次解析关键字、拼接sql，调用mysqli的excute(),返回执行后的结果
      * @access public
      * @param array $options 表达式
      * @return false | integer
@@ -904,6 +923,11 @@ class Db {
 
     /**
      * 生成查询SQL
+     * 1.检测参数中是否设置了page，有，则解析到$options['limit']
+     * 2.检测是否开启了sql缓存，如果开启了，serialize()和md5()对$options进行处理，作为缓存键，尝试用S()去值，取到就直接返回，否则下步
+     * 3.调用parseSql()生成sql语句
+     * 4.如果开启了sql缓存，将生成的sql语句缓存起来，并设置缓存周期、缓存队列长度、缓存方式
+     * 注意：由于一个项目的查询量非常大，所以必须设置缓存的数量，否则缓存占用的空间会变很大，间接影响效率。默认是20的长度
      * @access public
      * @param array $options 表达式
      * @return string
@@ -916,22 +940,25 @@ class Db {
             }else{
                 $page = $options['page'];
             }
-            $page    =  $page?$page:1;
-            $listRows=  isset($listRows)?$listRows:(is_numeric($options['limit'])?$options['limit']:20);
-            $offset  =  $listRows*((int)$page-1);
-            $options['limit'] =  $offset.','.$listRows;
+            $page    =  $page?$page:1;	//如果page()参数为空，默认是从第一页开始查
+            $listRows=  isset($listRows)?$listRows:(is_numeric($options['limit'])?$options['limit']:20);//如果page()没有说明每页记录数，默认给20
+            $offset  =  $listRows*((int)$page-1);	//这个(int)没有必要，字符串-1也会转换成整形
+            $options['limit'] =  $offset.','.$listRows;	//'2, 13'
         }
-        if(C('DB_SQL_BUILD_CACHE')) { // SQL创建缓存
-            $key    =  md5(serialize($options));
-            $value  =  S($key);
+        if(C('DB_SQL_BUILD_CACHE')) { // SQL创建缓存。默认是false
+            $key    =  md5(serialize($options));	//根据$options，使用serialize()和md5()进行加密
+            $value  =  S($key);	//使用S()进行取值
             if(false !== $value) {
                 return $value;
             }
         }
         $sql  =     $this->parseSql($this->selectSql,$options);
         $sql .=     $this->parseLock(isset($options['lock'])?$options['lock']:false);
-        if(isset($key)) { // 写入SQL创建缓存
-            S($key,$sql,array('expire'=>0,'length'=>C('DB_SQL_BUILD_LENGTH'),'queue'=>C('DB_SQL_BUILD_QUEUE')));
+        if(isset($key)) { // 写入SQL创建缓存。只有查询方法才支持sql解析缓存
+        	//sql缓存并不是缓存了结果，而是缓存了解析后的sql语句，避免重复解析sql。
+        	//C('DB_SQL_BUILD_LENGTH')>>>sql缓存队列的长度，默认是20。用来限制sql缓存的数量，因为一个项目的查询sql的量是非常大的，有必要设下缓存队列的长度。只会缓存最近20条数据
+        	//C('DB_SQL_BUILD_QUEUE')>>>sql缓存队列的缓存方式，默认是file
+            S($key,$sql,array('expire'=>0,'length'=>C('DB_SQL_BUILD_LENGTH'),'queue'=>C('DB_SQL_BUILD_QUEUE')));//永久生效
         }
         return $sql;
     }
@@ -943,11 +970,20 @@ class Db {
      * @return string
      */
     public function parseSql($sql,$options=array()){
+    	/*
+    	 * $options = array(
+    	 * 	'where' => array('status'=>1),
+    	 *  'field' => 'type,name,value',
+    	 *  'table' => 'onethink_config',
+    	 *  'model' => 'Config'
+    	 * )
+    	 */
         $sql   = str_replace(
             array('%TABLE%','%DISTINCT%','%FIELD%','%JOIN%','%WHERE%','%GROUP%','%HAVING%','%ORDER%','%LIMIT%','%UNION%','%COMMENT%'),
             array(
                 $this->parseTable($options['table']),
                 $this->parseDistinct(isset($options['distinct'])?$options['distinct']:false),
+            		//TODO
                 $this->parseField(!empty($options['field'])?$options['field']:'*'),
                 $this->parseJoin(!empty($options['join'])?$options['join']:''),
                 $this->parseWhere(!empty($options['where'])?$options['where']:''),

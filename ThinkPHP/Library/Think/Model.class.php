@@ -164,6 +164,7 @@ class Model {
         }
     }
 
+    //下面的__set()、__get()、__unset()、__isset()，用于封装属性的操作，不让外部与类耦合
     /**
      * 设置数据对象的值
      * @access public
@@ -208,33 +209,57 @@ class Model {
 
     /**
      * 利用__call方法实现一些特殊的Model方法
+     * 包括：在methods中定义的连贯操作，count、sum、min、max、avg统计查询，getBy，getFieldBy，scope
+     * 注意：其中有几个连贯操作在文档中没有全部找到,如token。或者说methods中定义的方法名，是用来合成options的简单键值对，因为并没有对其中的方法进行解析。
      * @access public
      * @param string $method 方法名称
      * @param array $args 调用参数
      * @return mixed
      */
     public function __call($method,$args) {
+    	//$this->methods是由连贯操作标识符组成的一位数组，array('order','alia')
+    	//in_array()中第三个参数是true时，还会检查needle的类型是否和haystack中的相同
         if(in_array(strtolower($method),$this->methods,true)) {
             // 连贯操作的实现
             $this->options[strtolower($method)] =   $args[0];
             return $this;
         }elseif(in_array(strtolower($method),array('count','sum','min','max','avg'),true)){
-            // 统计查询的实现
-            $field =  isset($args[0])?$args[0]:'*';
+            // 统计查询的实现。统计查询实际上是某个字段，count('name') name。
+            $field =  isset($args[0])?$args[0]:'*';	//是否指定了字段，默认是'*'
+            //getField()获取一条记录的某个值
             return $this->getField(strtoupper($method).'('.$field.') AS tp_'.$method);
-        }elseif(strtolower(substr($method,0,5))=='getby') {
+            /*
+             * getByXXX()，根据某个字段的值去找某条记录。
+             * 实际上由where()和find()实现。
+             */
+        }elseif(strtolower(substr($method,0,5))=='getby') {	//用的是substr()截取'getby'的， 后面的是字段名
             // 根据某个字段获取记录
-            $field   =   parse_name(substr($method,5));
+            //parse_name()只是端标识符命名规范进行转换
+            $field   =   parse_name(substr($method,5));	//获取字段名
             $where[$field] =  $args[0];
             return $this->where($where)->find();
+            /*
+             * getFieldByXXX('a', 'b')
+             * 实际上由where()和getField()实现
+             */
         }elseif(strtolower(substr($method,0,10))=='getfieldby') {
             // 根据某个字段获取记录的某个值
             $name   =   parse_name(substr($method,10));
-            $where[$name] =$args[0];
-            return $this->where($where)->getField($args[1]);
-        }elseif(isset($this->_scope[$method])){// 命名范围的单独调用支持
-            return $this->scope($method,$args[0]);
+            $where[$name] =$args[0];	//第一个参数是where()的值
+            return $this->where($where)->getField($args[1]);	//第二个参数是getField()的参数
+        }elseif(isset($this->_scope[$method])){// 命名范围的单独调用支持，要在自定义模型中给该属性赋值。必须要用D()定义模型
+        	/*
+        	 * 在自定义模型中:
+        	 * protected $_scope = array(
+        	 * 		'normal' => array(
+        	 * 			'where' => array('staus' => 1)
+        	 * 		)
+        	 * )
+        	 */
+        	//设置属性值，是一个操作
+            return $this->scope($method,$args[0]);	//这是一个方法
         }else{
+        	//L('_METHOD_NOT_EXIST_')>>>'方法不存在！'。调用的方法tp没有定义
             E(__CLASS__.':'.$method.L('_METHOD_NOT_EXIST_'));
             return;
         }
@@ -293,6 +318,12 @@ class Model {
 
     /**
      * 新增数据
+     * 1.通过判断$data是否为空，来决定是否使用对象。如果对象的data属性不为空，赋值给$data。否则，报“非法数据对象！”的错误
+     * 2.对$options使用_parseOptions()进行解析，一般没有第二个参数
+     * 3.根据数据表的字段类型，调用_facade()对$data中的字段进行类型检测和强制转换
+     * 4.尝试调用_before_insert()
+     * 5.调用db类的insert()将数据写入到数据库
+     * 6.返回最后写入的主键编号或者写入的数据的数量
      * @access public
      * @param mixed $data 数据
      * @param array $options 表达式
@@ -342,8 +373,14 @@ class Model {
         return $result;
     }
     // 插入数据前的回调方法
+    /**
+     * 在自定模型中实现，对数据写入数据库前做最后一步操作 
+     */
     protected function _before_insert(&$data,$options) {}
     // 插入成功后的回调方法
+    /**
+     * 插入成功后执行的回调方法 
+     */
     protected function _after_insert($data,$options) {}
 
     /**
@@ -406,6 +443,14 @@ class Model {
 
     /**
      * 保存数据
+     * 1.判断$data是否为空，决定使用对象中的数据还是报错。如果data不为空，将值赋给$data;否则，报'非法数据对象!'错误
+     * 2.对数据进行字段名、字段类型的检测和强制转换，表达式过滤
+     * 3.分析表达式，一般没有$options参数
+     * 4.获取主键名称
+     * 5.调用更新前回调方法
+     * 6.调用mysqli的excute()
+     * 7.调用更新后的回调方法
+     * 8.返回结果
      * @access public
      * @param mixed $data 数据
      * @param array $options 表达式
@@ -419,6 +464,7 @@ class Model {
                 // 重置数据
                 $this->data     =   array();
             }else{
+            	//L('_DATA_TYPE_INVALID_')——'非法数据对象!'
                 $this->error    =   L('_DATA_TYPE_INVALID_');
                 return false;
             }
@@ -447,7 +493,7 @@ class Model {
         if(false === $this->_before_update($data,$options)) {	//自定义模型中实现
             return false;
         }        
-        //TODO
+        //按sql的update标准形式进行解析、拼接sql语句，并调用mysqli的excute()来执行
         $result     =   $this->db->update($data,$options);
         if(false !== $result) {
             if(isset($pkValue)) $data[$pk]   =  $pkValue;
@@ -455,29 +501,43 @@ class Model {
         }
         return $result;
     }
+    
     // 更新数据前的回调方法
+    /**
+     *	更新数据前的回调方法，在自定义模型中定义
+     */
     protected function _before_update(&$data,$options) {}
+    
     // 更新成功后的回调方法
+    /**
+     * 更新成功后的回调方法，在自定义模型中定义 
+     */
     protected function _after_update($data,$options) {}
 
     /**
      * 删除数据
+     * 1.判断参数是否为空，空，则尝试获取数据对象中的主键值，递归调用delete()
+     * 2.支持整数、字符串的参数，如果不是多个主键，用整数作为参数，将主键值赋给$optinos['where']
+     * 3.调用_parseOptions()，主要是检查数据表是否有主键
+     * 4.调用删除前回调方法，mysqli的delete()，删除后回调方法
+     * 5.返回删除个数
      * @access public
      * @param mixed $options 表达式
      * @return mixed
      */
     public function delete($options=array()) {
-        if(empty($options) && empty($this->options['where'])) {
+        if(empty($options) && empty($this->options['where'])) {	
             // 如果删除条件为空 则删除当前数据对象所对应的记录
-            if(!empty($this->data) && isset($this->data[$this->getPk()]))
-                return $this->delete($this->data[$this->getPk()]);
+            if(!empty($this->data) && isset($this->data[$this->getPk()]))	//data数据对象的主键原来都可以用于删除
+                return $this->delete($this->data[$this->getPk()]);	//递归调用delte()，传入主键值
             else
                 return false;
         }
+        //没有传入参数，data数据对象中也没有主键
         $pk   =  $this->getPk();
-        if(is_numeric($options)  || is_string($options)) {
+        if(is_numeric($options)  || is_string($options)) {	//如果不是多个主键，最好用整形。如果是字符串，sql执行时会有自动转型
             // 根据主键删除记录
-            if(strpos($options,',')) {
+            if(strpos($options,',')) {	//支持传入用逗号分割主键的字符串。并没有解析，直接使用'IN'关键字
                 $where[$pk]     =  array('IN', $options);
             }else{
                 $where[$pk]     =  $options;
@@ -486,7 +546,7 @@ class Model {
             $options['where']   =  $where;
         }
         // 分析表达式
-        $options =  $this->_parseOptions($options);
+        $options =  $this->_parseOptions($options);	//如果表并没有主键，那么后面的判断是必要的。
         if(is_array($options['where']) && isset($options['where'][$pk])){
             $pkValue            =  $options['where'][$pk];
         }
@@ -496,15 +556,21 @@ class Model {
         $result  =    $this->db->delete($options);
         if(false !== $result) {
             $data = array();
-            if(isset($pkValue)) $data[$pk]   =  $pkValue;
+            if(isset($pkValue)) $data[$pk]   =  $pkValue;	//debug>>>数据已经删除了，这个数据对象的主键获取还有作用么？
             $this->_after_delete($data,$options);
         }
         // 返回删除记录个数
         return $result;
     }
     // 删除数据前的回调方法
+    /**
+     * 删除数据前的回调方法，需要在自定义模型中定义
+     */
     protected function _before_delete($options) {}    
     // 删除成功后的回调方法
+    /**
+     * 删除数据后的回调方法，需要在自定义模型中定义 
+     */
     protected function _after_delete($data,$options) {}
 
     /**
@@ -514,6 +580,7 @@ class Model {
      * @return mixed
      */
     public function select($options=array()) {
+    	//如果$options是字符串或者数字，尝试根据主键查询
         if(is_string($options) || is_numeric($options)) {
             // 根据主键查询
             $pk   =  $this->getPk();
@@ -528,11 +595,11 @@ class Model {
             $options            =  array();
             // 分析表达式
             $options            =  $this->_parseOptions($options);
-            return  '( '.$this->db->buildSelectSql($options).' )';
+            return  '( '.$this->db->buildSelectSql($options).' )';	//select(false)生成子查询，内部用到的还是buildSelectSql()
         }
         // 分析表达式
         $options    =  $this->_parseOptions($options);
-        // 判断查询缓存
+        // 判断查询缓存debug>>>没有用过
         if(isset($options['cache'])){
             $cache  =   $options['cache'];
             $key    =   is_string($cache['key'])?$cache['key']:md5(serialize($options));
@@ -540,7 +607,8 @@ class Model {
             if(false !== $data){
                 return $data;
             }
-        }        
+        }    
+        //TODO    
         $resultSet  = $this->db->select($options);
         if(false === $resultSet) {
             return false;
@@ -572,12 +640,18 @@ class Model {
 
     /**
      * 分析表达式
+     * 1.获取表字段信息，包括字段名、类型等
+     * 2.清空$this->optinos，避免影响下次查询
+     * 3.获取数据表名、模型名称
+     * 4.通过foreach()和_parseType()进行类型检测和强制转换
+     * 5.表达式过滤
+     * 6.返回解析后的$options
      * @access protected
      * @param array $options 表达式参数
      * @return array
      */
     protected function _parseOptions($options=array()) {
-        if(is_array($options)) //
+        if(is_array($options)) //debug>>>这么早合并是为什么？
             $options =  array_merge($this->options,$options);
 
         if(!isset($options['table'])){
@@ -589,7 +663,7 @@ class Model {
             $fields             =   $this->getDbFields();
         }
         // 查询过后清空sql表达式组装 避免影响下次查询
-        $this->options  =   array();
+        $this->options  =   array();	//debug>>>如果是直接清空，为什么开始还有合并一次options属性？
         // 数据表别名
         if(!empty($options['alias'])) {
             $options['table']  .=   ' '.$options['alias'];
@@ -1343,20 +1417,23 @@ class Model {
 
     /**
      * 得到完整的数据表名
+     * 带有数据库名、表前缀的表名
+     * 1.通过属性tableName和name得到带表前缀的表名
+     * 2.连接上数据库名，并返回该字符串
      * @access public
      * @return string
      */
     public function getTableName() {
         if(empty($this->trueTableName)) {
-            $tableName  = !empty($this->tablePrefix) ? $this->tablePrefix : '';
+            $tableName  = !empty($this->tablePrefix) ? $this->tablePrefix : '';	//debug>>>这个改为$tablePrefix更好，因为它就是表前缀，通过它来判断用哪个属性获取表名
             if(!empty($this->tableName)) {
-                $tableName .= $this->tableName;
+                $tableName .= $this->tableName;	//没有表前缀的表名
             }else{
-                $tableName .= parse_name($this->name);
+                $tableName .= parse_name($this->name);	//name是模型名，带表前缀的表名
             }
-            $this->trueTableName    =   strtolower($tableName);
+            $this->trueTableName    =   strtolower($tableName);	//将表名转换成小写。带表前缀
         }
-        return (!empty($this->dbName)?$this->dbName.'.':'').$this->trueTableName;
+        return (!empty($this->dbName)?$this->dbName.'.':'').$this->trueTableName;	//连接上数据库名
     }
 
     /**
@@ -1592,14 +1669,20 @@ class Model {
 
     /**
      * 调用命名范围
+     * 将命名范围对应的数组解析合并到数组中，然后和options属性合并并赋值给属性options,返回$this
+     * 1.如果scope()没有传入参数，尝试去获取'default'对应的命名范围值，否则直接返回$this
+     * 2.如果第一个参数，支持用逗号分割的多个命名范围。使用foreach()和array_merge()得到一个表达式$options数组。如果第二个参数是数组，直接与上一步得到的数组合并
+     * 3.如果第一个参数是数组，当作命名范围的定义赋值给$options数组
+     * 4.将$options的键名全部转换成小写形式，用array_merge()于$this->options合并
+     * 5.返回$this
      * @access public
      * @param mixed $scope 命名范围名称 支持多个 和直接定义
      * @param array $args 参数
      * @return Model
      */
     public function scope($scope='',$args=NULL){
-        if('' === $scope) {
-            if(isset($this->_scope['default'])) {
+        if('' === $scope) {	//如果有默认命名范围，就使用它；否则，返回$this，即scope()连贯操作无效了。
+            if(isset($this->_scope['default'])) {	//可以定义一个标识符是'default'的命名范围，做默认命名范围使用
                 // 默认的命名范围
                 $options    =   $this->_scope['default'];
             }else{
@@ -1612,14 +1695,16 @@ class Model {
                 if(!isset($this->_scope[$name])) continue;
                 $options    =   array_merge($options,$this->_scope[$name]);
             }
-            if(!empty($args) && is_array($args)) {
+            if(!empty($args) && is_array($args)) {	//scope('test', array('order'=> 'id'))
                 $options    =   array_merge($options,$args);
             }
-        }elseif(is_array($scope)){ // 直接传入命名范围定义
+        }elseif(is_array($scope)){ // 直接传入命名范围定义。这样使用没有多大意义，不如直接使用TP的连贯操作其他关键字
             $options        =   $scope;
         }
         
         if(is_array($options) && !empty($options)){
+        	//array_change_key_case——返回字符串键名全为小写或大写的数组，默认转化成小写。不改变数字索引。
+        	//将各个命名空间解析成数组，存放到参数表达式中。在其他$this->options的操作中，都是使用array_merge()，所以会出现后面覆盖前面连贯操作条件的情况。
             $this->options  =   array_merge($this->options,array_change_key_case($options));
         }
         return $this;

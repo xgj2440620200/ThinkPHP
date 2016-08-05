@@ -15,7 +15,13 @@ use Think\Page;
  * 文档基础模型
  */
 class DocumentModel extends Model{
-
+	/* 测试scope的用法 */
+	protected $_scope = array(
+		'test' => array(
+			'limit' => 10
+		),
+	);
+	
 	/* 自动验证规则 */
 	protected $_validate = array(
 		array('name', '/^[a-zA-Z]\w{0,30}$/', '文档标识不合法', self::VALUE_VALIDATE, 'regex', self::MODEL_BOTH),

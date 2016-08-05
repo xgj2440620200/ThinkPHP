@@ -22,7 +22,10 @@ class IndexController extends HomeController {
         $list    = D('Document')->lists(null);//一个select()
         //测试
         $where['id|name'] = array(1, 'pax', '_multi'=>true);
-        D('Document')->where($where)->select();
+        D('Document')->where($where)->field('id')->scope('test')->select();
+        /*echo D('Document')->_sql()
+         * SELECT * FROM `onethink_document` WHERE ( (`id` = 1) OR (`name` = 'pax') ) LIMIT 10 
+         */
         $this->assign('category',$category);//栏目
         $this->assign('lists',$list);//列表
         $this->assign('page',D('Document')->page);//分页
