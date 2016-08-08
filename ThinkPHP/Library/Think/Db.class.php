@@ -684,11 +684,17 @@ class Db {
 
     /**
      * join分析
+     * 参数是一个数组，单元是join语句，直接用implode()进行处理，赋值给字符串返回
      * @access protected
      * @param array $join
      * @return string
      */
     protected function parseJoin($join) {
+    	/*
+    	 * $join>>>array(
+    	 * 		'INNER JOIN ref_members m ON m.id=c.fid"
+    	 * )
+    	 */
         $joinStr = '';
         if(!empty($join)) {
             $joinStr    =   ' '.implode(' ',$join).' ';
@@ -722,6 +728,7 @@ class Db {
 
     /**
      * group分析
+     * 将' GROUP BY '与 参数连接，并返回
      * @access protected
      * @param mixed $group
      * @return string
@@ -732,6 +739,7 @@ class Db {
 
     /**
      * having分析
+     * 将' HAVING '和参数连接，返回字符串
      * @access protected
      * @param string $having
      * @return string
@@ -764,6 +772,7 @@ class Db {
 
     /**
      * union分析
+     * 用的少，基本不用
      * @access protected
      * @param mixed $union
      * @return string
@@ -910,6 +919,9 @@ class Db {
 
     /**
      * 查找记录
+     * 1.成成查询SQL
+     * 2.调用query()
+     * 3.返回查询结果
      * @access public
      * @param array $options 表达式
      * @return mixed
@@ -917,6 +929,7 @@ class Db {
     public function select($options=array()) {
         $this->model  =   $options['model'];
         $sql        =   $this->buildSelectSql($options);
+        //debug>>>query()这个方法是怎么调用的？
         $result     =   $this->query($sql,$this->parseBind(!empty($options['bind'])?$options['bind']:array()));
         return $result;
     }
@@ -965,6 +978,7 @@ class Db {
 
     /**
      * 替换SQL语句中表达式
+     * 对sql中的'%TABLE%','%DISTINCT%','%FIELD%'等关键字进行替换，调用parseTable()、parseDistinct()、parseField()等
      * @access public
      * @param array $options 表达式
      * @return string
@@ -983,7 +997,6 @@ class Db {
             array(
                 $this->parseTable($options['table']),
                 $this->parseDistinct(isset($options['distinct'])?$options['distinct']:false),
-            		//TODO
                 $this->parseField(!empty($options['field'])?$options['field']:'*'),
                 $this->parseJoin(!empty($options['join'])?$options['join']:''),
                 $this->parseWhere(!empty($options['where'])?$options['where']:''),
@@ -999,16 +1012,19 @@ class Db {
 
     /**
      * 获取最近一次查询的sql语句 
+     * 是在mysqli类中进行赋值的，在执行某个sql之前进行赋值的，并没有此属性的操作
      * @param string $model  模型名
      * @access public
      * @return string
      */
     public function getLastSql($model='') {
+    	//queryStr是在mysqli中进行赋值的，是在执行某个sql之前进行赋值的，但是并没有进行主动销毁的操作
         return $model?$this->modelSql[$model]:$this->queryStr;
     }
 
     /**
      * 获取最近插入的ID
+     * mysqli类中的excute()进行了赋值
      * @access public
      * @return string
      */
@@ -1018,6 +1034,9 @@ class Db {
 
     /**
      * 获取最近的错误信息
+     * 在mysqli类的query()和excute()中调用error()，对error属性进行赋值。
+     * 注意：只有在sql执行出现错误时，才会对这个属性进行赋值，会导致，打印的是其他执行sql的错误，
+     * 		而不是当前执行sql的错误。
      * @access public
      * @return string
      */
@@ -1027,6 +1046,7 @@ class Db {
 
     /**
      * SQL指令安全过滤
+     * 调用addslashes()对字符串进行处理
      * @access public
      * @param string $str  SQL字符串
      * @return string

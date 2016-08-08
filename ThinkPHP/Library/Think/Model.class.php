@@ -575,11 +575,18 @@ class Model {
 
     /**
      * 查询数据集
+     * 1.判断参数是否为数字或者数字形式的字符串，是则，用参数生成一个$optinos['where']
+     * 2._parseOpionts()分析表达式
+     * 3.判断是否设置了查询缓存cache()，是则尝试取值
+     * 4.调用db的select()
+     * 5.对查询结果集进行字段检测
+     * 6.设置了cache()，就进行缓存。否则直接跳到下步
+     * 7.返回查询结果集
      * @access public
      * @param array $options 表达式参数
      * @return mixed
      */
-    public function select($options=array()) {
+    public function select($options=array()) {	//debug>>>select()是否支持result()连贯操作？
     	//如果$options是字符串或者数字，尝试根据主键查询
         if(is_string($options) || is_numeric($options)) {
             // 根据主键查询
@@ -603,27 +610,31 @@ class Model {
         if(isset($options['cache'])){
             $cache  =   $options['cache'];
             $key    =   is_string($cache['key'])?$cache['key']:md5(serialize($options));
-            $data   =   S($key,'',$cache);
+            $data   =   S($key,'',$cache);	//S($key, '')是用来取数据的，S()中第二个参数默认是''，在''的情况下，是取数据的
             if(false !== $data){
                 return $data;
             }
         }    
-        //TODO    
         $resultSet  = $this->db->select($options);
-        if(false === $resultSet) {
+        if(false === $resultSet) {	//sql语句出现错误
             return false;
         }
         if(empty($resultSet)) { // 查询结果为空
             return null;
         }
+        //对查询结果集进行字段检测，销毁不在字段映射中对应的值
         $resultSet  =   array_map(array($this,'_read_data'),$resultSet);
         $this->_after_select($resultSet,$options);
         if(isset($cache)){
-            S($key,$resultSet,$cache);
+            S($key,$resultSet,$cache);	//如果设置了cache，这里将缓存查询结果集
         }           
         return $resultSet;
     }
+    
     // 查询成功后的回调方法
+    /**
+     * 查询成功后的回调方法，在自定模型中定义 
+     */
     protected function _after_select(&$resultSet,$options) {}
 
     /**
@@ -690,7 +701,11 @@ class Model {
         $this->_options_filter($options);
         return $options;
     }
+    
     // 表达式过滤回调方法
+    /**
+     * 表达式过滤回调方法 
+     */
     protected function _options_filter(&$options) {}
 
     /**
@@ -720,12 +735,16 @@ class Model {
 
     /**
      * 数据读取后的处理
+     * 销毁查询结果集中对应字段没有在_map中的值
+     * debug>>>有什么作用？字段检测不是在执行sql前就执行过吗？
      * @access protected
      * @param array $data 当前数据
      * @return array
      */
     protected function _read_data($data) {
         // 检查字段映射
+        //C('READ_DATA_MAP')>>>NULL
+        //debug>>>_map属性是在哪里赋值的？
         if(!empty($this->_map) && C('READ_DATA_MAP')) {
             foreach ($this->_map as $key=>$val){
                 if(isset($data[$val])) {
@@ -739,18 +758,19 @@ class Model {
 
     /**
      * 查询数据
+     * find()实际上是加了limit 1 的select()
      * @access public
      * @param mixed $options 表达式参数
      * @return mixed
      */
     public function find($options=array()) {
-        if(is_numeric($options) || is_string($options)) {
-            $where[$this->getPk()]  =   $options;
+        if(is_numeric($options) || is_string($options)) {	//根据主键查询，只能传入一个主键，否则会把整个字符串当作主键，导致查询错误
+            $where[$this->getPk()]  =   $options;	//这里是直接赋值的，并没有用判断是否有','，直接使用TP的array('IN', $options)
             $options                =   array();
             $options['where']       =   $where;
         }
         // 总是查找一条记录
-        $options['limit']   =   1;
+        $options['limit']   =   1;	//自动给find()的limit赋值1，所以不用再find()中显示加limit 1，来优化查询
         // 分析表达式
         $options            =   $this->_parseOptions($options);
         // 判断查询缓存
@@ -771,9 +791,9 @@ class Model {
             return null;
         }
         // 读取数据后的处理
-        $data   =   $this->_read_data($resultSet[0]);
+        $data   =   $this->_read_data($resultSet[0]);	//在select()中，用的是array_map()。find()只有一个结果，就不用调用array_map()了。
         $this->_after_find($data,$options);
-        if(!empty($this->options['result'])) {
+        if(!empty($this->options['result'])) {	//用于返回数据转换。包括自定义方法回调或者转换成json、xml格式。
             return $this->returnResult($data,$this->options['result']);
         }
         $this->data     =   $data;
@@ -782,9 +802,17 @@ class Model {
         }
         return $this->data;
     }
+    
     // 查询成功的回调方法
+    /**
+     * 查询成功后的回调方法 
+     */
     protected function _after_find(&$result,$options) {}
 
+    /**
+     *	用于返回数据转换
+     *	用$type作为回调方法处理$data，或者直接转换成json、xml格式的数据 
+     */
     protected function returnResult($data,$type=''){
         if ($type){
             if(is_callable($type)){
@@ -802,6 +830,8 @@ class Model {
 
     /**
      * 处理字段映射
+     * 读取时对结果集中的字段进行过滤，销毁单元
+     * debug>>>写？
      * @access public
      * @param array $data 当前数据
      * @param integer $type 类型 0 写入 1 读取
@@ -829,6 +859,7 @@ class Model {
 
     /**
      * 设置记录的某个字段值
+     * 参数支持数关联组和字符串形式，赋值给数据对象，调用save()
      * 支持使用数据库字段和方法
      * @access public
      * @param string|array $field  字段名
@@ -836,11 +867,13 @@ class Model {
      * @return boolean
      */
     public function setField($field,$value='') {
+    	//给数据对象赋值
         if(is_array($field)) {
             $data           =   $field;
         }else{
             $data[$field]   =   $value;
         }
+        //调用save()
         return $this->save($data);
     }
 
