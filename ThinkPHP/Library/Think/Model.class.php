@@ -879,17 +879,19 @@ class Model {
 
     /**
      * 字段值增长
+     * 调用的是setField()
      * @access public
      * @param string $field  字段名
      * @param integer $step  增长值
      * @return boolean
      */
     public function setInc($field,$step=1) {
-        return $this->setField($field,array('exp',$field.'+'.$step));
+        return $this->setField($field,array('exp',$field.'+'.$step));	//budeg>>>第二个参数是数组的情景还要测试下
     }
 
     /**
      * 字段值减少
+     * 调用setField()
      * @access public
      * @param string $field  字段名
      * @param integer $step  减少值
@@ -921,22 +923,36 @@ class Model {
         $field                  =   trim($field);
         if(strpos($field,',')) { // 多字段
             if(!isset($options['limit'])){
-                $options['limit']   =   is_numeric($sepa)?$sepa:'';
+                $options['limit']   =   is_numeric($sepa)?$sepa:'';	//控制返回的记录数
             }
             $resultSet          =   $this->db->select($options);
             if(!empty($resultSet)) {
+            	/*
+            	 * $result>>>array(
+            	 * 	array('uid'=> '1', 'name' => '', 'title' => 'OneThink1.0正式版发布'),
+            	 *  array('uid => '1', 'name' => 'pax', 'title' => '添加文档'),
+            	 *  array('uid' => '1', 'name' => 'pax', 'title' => '添加文档'),
+            	 * )
+            	 */
                 $_field         =   explode(',', $field);
-                $field          =   array_keys($resultSet[0]);
-                $key            =   array_shift($field);
+                $field          =   array_keys($resultSet[0]);	//获取字段名
+                $key            =   array_shift($field);	
+                /*
+                 * $key>>>'uid'
+                 * $field>>>array('name', 'title')
+                 */
                 $key2           =   array_shift($field);
+                /*
+                 * $key2>>>'name' 
+                 */
                 $cols           =   array();
                 $count          =   count($_field);
                 foreach ($resultSet as $result){
                     $name   =  $result[$key];
-                    if(2==$count) {
-                        $cols[$name]   =  $result[$key2];
+                    if(2==$count) {	//只有两个字段
+                        $cols[$name]   =  $result[$key2];	//如果只有两个字段，会组成一个去除了二维数组每个单元中的第一个单元
                     }else{
-                        $cols[$name]   =  is_string($sepa)?implode($sepa,$result):$result;
+                        $cols[$name]   =  is_string($sepa)?implode($sepa,$result):$result;	//如果是多余2个字段，就不会去处作为索引的那些单元了
                     }
                 }
                 if(isset($cache)){
@@ -952,7 +968,7 @@ class Model {
             $result = $this->db->select($options);
             if(!empty($result)) {
                 if(true !== $sepa && 1==$options['limit']) {
-                    $data   =   reset($result[0]);
+                    $data   =   reset($result[0]);	//因为不知道数组中的关联索引名，用reset()是不错的定位方式
                     if(isset($cache)){
                         S($key,$data,$cache);
                     }            
