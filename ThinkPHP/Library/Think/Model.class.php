@@ -903,6 +903,10 @@ class Model {
 
     /**
      * 获取一条记录的某个字段值
+     * 1.判断查询缓存
+     * 2.$field是已','分隔的多个字段字符串，调用db类的select()，移出查询结果集中第一个单元的前两个索引，对结果集进行遍历，用前面移出的索引作为索引
+     * 3.$field是一个字段，通过$sepa对limit进行重置，调用db类的select()
+     * 4.返回结果集
      * @access public
      * @param string $field  字段名
      * @param string $spea  字段数据间隔符号 NULL返回数组
@@ -960,21 +964,21 @@ class Model {
                 }
                 return $cols;
             }
-        }else{   // 查找一条记录
+        }else{   // 查找一条记录。只有一个字段，并不是只查一条记录
             // 返回数据个数
-            if(true !== $sepa) {// 当sepa指定为true的时候 返回所有数据
-                $options['limit']   =   is_numeric($sepa)?$sepa:1;
+            if(true !== $sepa) {// 当sepa指定为true的时候 返回所有数据。不为true时，可以通过传入的第一个参数来觉得返回的记录数量
+                $options['limit']   =   is_numeric($sepa)?$sepa:1;	//这里对limit进行赋值，覆盖了limit()中的参数值。所以在有getField()的sql表达式中，limit()是无效的
             }
             $result = $this->db->select($options);
             if(!empty($result)) {
-                if(true !== $sepa && 1==$options['limit']) {
+                if(true !== $sepa && 1==$options['limit']) {	//返回单条记录的情况
                     $data   =   reset($result[0]);	//因为不知道数组中的关联索引名，用reset()是不错的定位方式
                     if(isset($cache)){
                         S($key,$data,$cache);
                     }            
                     return $data;
                 }
-                foreach ($result as $val){
+                foreach ($result as $val){	//返回多条记录的情况
                     $array[]    =   $val[$field];
                 }
                 if(isset($cache)){
@@ -1001,15 +1005,15 @@ class Model {
             $data   =   get_object_vars($data);
         }
         // 验证数据
-        if(empty($data) || !is_array($data)) {
+        if(empty($data) || !is_array($data)) {	//排除$data是字符串的情况
             $this->error = L('_DATA_TYPE_INVALID_');
             return false;
         }
 
-        // 状态
+        // 状态。根据$data中是否有主键，来判断是写入数据还是更新数据
         $type = $type?$type:(!empty($data[$this->getPk()])?self::MODEL_UPDATE:self::MODEL_INSERT);
 
-        // 检查字段映射
+        // 检查字段映射。去除不是表中字段的单元
         if(!empty($this->_map)) {
             foreach ($this->_map as $key=>$val){
                 if(isset($data[$key])) {
@@ -1018,22 +1022,22 @@ class Model {
                 }
             }
         }
-
-        // 检测提交字段的合法性
+        // 检测提交字段的合法性。根据field()连贯操作来限制提交的字段
         if(isset($this->options['field'])) { // $this->field('field1,field2...')->create()
             $fields =   $this->options['field'];
             unset($this->options['field']);
-        }elseif($type == self::MODEL_INSERT && isset($this->insertFields)) {
+        }elseif($type == self::MODEL_INSERT && isset($this->insertFields)) {	//insertFields并没有设置
             $fields =   $this->insertFields;
-        }elseif($type == self::MODEL_UPDATE && isset($this->updateFields)) {
+        }elseif($type == self::MODEL_UPDATE && isset($this->updateFields)) {	//updateFields并没有设置
             $fields =   $this->updateFields;
         }
-        if(isset($fields)) {
+        if(isset($fields)) {	//这个$fields是用来给字段白名单的
             if(is_string($fields)) {
                 $fields =   explode(',',$fields);
             }
             // 判断令牌验证字段
-            if(C('TOKEN_ON'))   $fields[] = C('TOKEN_NAME');
+            if(C('TOKEN_ON'))   $fields[] = C('TOKEN_NAME');	//无论更新还是添加，都需要令牌验证，可以开启
+            //销毁字段白名单以外的单元
             foreach ($data as $key=>$val){
                 if(!in_array($key,$fields)) {
                     unset($data[$key]);
@@ -1042,6 +1046,7 @@ class Model {
         }
 
         // 数据自动验证
+        //TODO
         if(!$this->autoValidation($data,$type)) return false;
 
         // 表单令牌验证

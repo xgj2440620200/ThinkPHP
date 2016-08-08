@@ -26,7 +26,14 @@ class IndexController extends HomeController {
         /*echo D('Document')->_sql()
          * SELECT * FROM `onethink_document` WHERE ( (`id` = 1) OR (`name` = 'pax') ) LIMIT 10 
          */
-        D('Document')->getField('title,uid,name');
+        $res = D('Document')->getField('title', 2);
+        $data = array(
+        	'uid' => 1,
+        	'name' => 'test',
+        	'title' => 'haha'
+        );
+        $model = D('Document');
+        $model->create($data);
         $this->assign('category',$category);//栏目
         $this->assign('lists',$list);//列表
         $this->assign('page',D('Document')->page);//分页
