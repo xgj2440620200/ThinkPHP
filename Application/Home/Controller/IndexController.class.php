@@ -34,6 +34,7 @@ class IndexController extends HomeController {
         );
         $model = D('Document');
         $model->create($data);
+        $model->add();
         $this->assign('category',$category);//栏目
         $this->assign('lists',$list);//列表
         $this->assign('page',D('Document')->page);//分页

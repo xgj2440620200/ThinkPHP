@@ -992,6 +992,16 @@ class Model {
 
     /**
      * 创建数据对象 但不保存到数据库
+     * 1.获取$data数据或者从post请求获取
+     * 2.验证$data是否为空或者不是数组，是则报错“非法数据对象”
+     * 3.根据$type或者$data中是否有主键、数据操作状态，判断是写入数据还是更新数据
+     * 4.检查字段映射，去除不是表中字段的$data对应的单元
+     * 5.检测提交字段的合法性。用field()中的字段作为白名单，来过滤提交字段中的非法字段
+     * 6.根据$_validate来进行数据的自动验证，$_validate需要自定义
+     * 7.表单令牌验证,验证token是否正确，并销毁session中对应的token值
+     * 8.验证完成生成数据对象，销毁数据中非法字段对应的数据debug>>>前面白名单中的字段可能有误，所以需要在这里处理下
+     * 9.创建完成对数据进行自动处理，包括回调函数、默认值、忽略空字符串等
+     * 10.赋值$data属性，返回$data数据
      * @access public
      * @param mixed $data 创建数据
      * @param string $type 状态
@@ -1009,7 +1019,7 @@ class Model {
             $this->error = L('_DATA_TYPE_INVALID_');
             return false;
         }
-
+        
         // 状态。根据$data中是否有主键，来判断是写入数据还是更新数据
         $type = $type?$type:(!empty($data[$this->getPk()])?self::MODEL_UPDATE:self::MODEL_INSERT);
 
@@ -1022,6 +1032,7 @@ class Model {
                 }
             }
         }
+        
         // 检测提交字段的合法性。根据field()连贯操作来限制提交的字段
         if(isset($this->options['field'])) { // $this->field('field1,field2...')->create()
             $fields =   $this->options['field'];
@@ -1045,29 +1056,29 @@ class Model {
             }
         }
 
-        // 数据自动验证
-        //TODO
-        if(!$this->autoValidation($data,$type)) return false;
+        // 数据自动验证，是自己指定的验证规则
+        if(!$this->autoValidation($data,$type)) return false;	//因为测试数据自动验证不通过，在这里返回了，所以后面的没有执行。
 
-        // 表单令牌验证
+        // 表单令牌验证,验证token是否正确，并销毁session中对应的token值
         if(!$this->autoCheckToken($data)) {
-            $this->error = L('_TOKEN_ERROR_');
+            $this->error = L('_TOKEN_ERROR_');	//'_TOKEN_ERROR_'>>>表单令牌错误
             return false;
         }
 
-        // 验证完成生成数据对象
-        if($this->autoCheckFields) { // 开启字段检测 则过滤非法字段数据
-            $fields =   $this->getDbFields();
+        // 验证完成生成数据对象，销毁数据中非法字段对应的数据
+        if($this->autoCheckFields) { // 开启字段检测 则过滤非法字段数据。默认是TRUE
+            $fields =   $this->getDbFields();	//获取数据表字段
             foreach ($data as $key=>$val){
                 if(!in_array($key,$fields)) {
-                    unset($data[$key]);
+                    unset($data[$key]);	//销毁非法字段的数据
                 }elseif(MAGIC_QUOTES_GPC && is_string($val)){
                     $data[$key] =   stripslashes($val);
                 }
             }
         }
-
+        
         // 创建完成对数据进行自动处理
+        //debug>>>为什么在这里不能var_dump($data)?是数据都被过滤了？
         $this->autoOperation($data,$type);
         // 赋值当前数据对象
         $this->data =   $data;
@@ -1075,25 +1086,33 @@ class Model {
         return $data;
      }
 
-    // 自动表单令牌验证
+    /**
+     *  自动表单令牌验证，经常手动调用此方法
+     *  令牌验证的数据是保存在session中的，用'_'把key和value隔开
+     *  1.判断是否关闭了令牌验证，可以配置是否关闭
+     *  2.如果开启了表单token，获取token标识符（可以配置，所有页面相同），如果$data或session中没有对应标识符的数据，则令牌无效，返回fasle
+     *  3.将$data中的令牌值与session中令牌的值用===进行比较，如果相等，则销毁对应session中的值，返回true（避免重复提交）。
+     *  4.令牌验证失败，如果开启了TOKEN充值，则销毁session中的值
+     *  5.返回false
+     */
     // TODO  ajax无刷新多次提交暂不能满足
     public function autoCheckToken($data) {
         // 支持使用token(false) 关闭令牌验证
-        if(isset($this->options['token']) && !$this->options['token']) return true;
+        if(isset($this->options['token']) && !$this->options['token']) return true;	//关闭了令牌验证
         if(C('TOKEN_ON')){
-            $name   = C('TOKEN_NAME');
-            if(!isset($data[$name]) || !isset($_SESSION[$name])) { // 令牌数据无效
+            $name   = C('TOKEN_NAME');	
+            if(!isset($data[$name]) || !isset($_SESSION[$name])) { // 令牌数据无效。用session存放表单token
                 return false;
             }
 
             // 令牌验证
             list($key,$value)  =  explode('_',$data[$name]);
             if($value && $_SESSION[$name][$key] === $value) { // 防止重复提交
-                unset($_SESSION[$name][$key]); // 验证完成销毁session
+                unset($_SESSION[$name][$key]); // 验证完成销毁session。验证一次就销毁，可以防止重复提交
                 return true;
             }
             // 开启TOKEN重置
-            if(C('TOKEN_RESET')) unset($_SESSION[$name][$key]);
+            if(C('TOKEN_RESET')) unset($_SESSION[$name][$key]);	//token验证失败了
             return false;
         }
         return true;
@@ -1101,12 +1120,14 @@ class Model {
 
     /**
      * 使用正则验证数据
+     * 提供了几个默认的正则表达式，使用preg_match()来验证正则表达式和数据
      * @access public
      * @param string $value  要验证的数据
      * @param string $rule 验证规则
      * @return boolean
      */
     public function regex($value,$rule) {
+    	//提供了几个正则表达式
         $validate = array(
             'require'   =>  '/\S+/',
             'email'     =>  '/^\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$/',
@@ -1121,12 +1142,18 @@ class Model {
         // 检查是否有内置的正则表达式
         if(isset($validate[strtolower($rule)]))
             $rule       =   $validate[strtolower($rule)];
+        //使用preg_match()验证正则表达式和数据
         return preg_match($rule,$value)===1;
     }
 
     /**
      * 自动表单处理
-     * @access public
+     * 可以减少代码量
+     * 需要用数组方式定义$_auto属性或者动态完成$model->auto($rules)->create()->add();
+     * 类似于自动验证的方式，支持function、callback、field、ingro、string，默认是string
+     * 对字段进行函数回调处理、用其他字段的值填充、如果为空unset()、给默认值
+     * 返回处理后的数据
+     * @access private
      * @param array $data 创建数据
      * @param string $type 创建类型
      * @return mixed
@@ -1140,6 +1167,13 @@ class Model {
         }
         // 自动填充
         if(isset($_auto)) {
+        	/*
+        	 * $_auto>>>array(
+        	 * 		array('status', '1'),	//新增的时候把status字段设置为1
+        	 * 		array('password', 'md5', 3, 'function'),	//对password字段在新增和编辑的时候使用md5函数处理
+        	 * 		array('update_time', 'time', 2, 'function'), //对update_time字段在更新的时候写入当前时间戳
+        	 * )
+        	 */
             foreach ($_auto as $auto){
                 // 填充因子定义格式
                 // array('field','填充内容','填充条件','附加规则',[额外参数])
@@ -1168,7 +1202,7 @@ class Model {
                             break;
                         case 'string':
                         default: // 默认作为字符串填充
-                            $data[$auto[0]] = $auto[1];
+                            $data[$auto[0]] = $auto[1];	//给默认值
                     }
                     if(isset($data[$auto[0]]) && false === $data[$auto[0]] )   unset($data[$auto[0]]);
                 }
@@ -1179,18 +1213,153 @@ class Model {
 
     /**
      * 自动表单验证
+     * 1.获取$_validate，该属性需要在模型中用数组的方式具体定义
+     * 2.通过遍历$_validate，调用_validationField()验证$data。如果验证失败，将错误提示语赋给$error属性
+     * 3.返回验证的布尔值
      * @access protected
      * @param array $data 创建数据
      * @param string $type 创建类型
      * @return boolean
      */
     protected function autoValidation($data,$type) {
-        if(!empty($this->options['validate'])) {
+    	/*
+    	 * $data>>>array(
+    	 * 		'uid' => 1,
+    	 *		'name' => 'test',
+    	 *		'title' => 'haha',
+    	 * )
+    	 */
+        if(!empty($this->options['validate'])) {	//NULL
             $_validate   =   $this->options['validate'];
             unset($this->options['validate']);
         }elseif(!empty($this->_validate)){
+        	/*
+        	 * array(8) {
+				  [0]=>
+				  array(6) {
+				    [0]=>
+				    string(4) "name"
+				    [1]=>
+				    string(20) "/^[a-zA-Z]\w{0,30}$/"
+				    [2]=>
+				    string(21) "文档标识不合法"
+				    [3]=>
+				    int(2)
+				    [4]=>
+				    string(5) "regex"
+				    [5]=>
+				    int(3)
+				  }
+				  [1]=>
+				  array(6) {
+				    [0]=>
+				    string(4) "name"
+				    [1]=>
+				    string(0) ""
+				    [2]=>
+				    string(18) "标识已经存在"
+				    [3]=>
+				    int(2)
+				    [4]=>
+				    string(6) "unique"
+				    [5]=>
+				    int(3)
+				  }
+				  [2]=>
+				  array(6) {
+				    [0]=>
+				    string(5) "title"
+				    [1]=>
+				    string(7) "require"
+				    [2]=>
+				    string(18) "标题不能为空"
+				    [3]=>
+				    int(2)
+				    [4]=>
+				    string(5) "regex"
+				    [5]=>
+				    int(3)
+				  }
+				  [3]=>
+				  array(6) {
+				    [0]=>
+				    string(11) "category_id"
+				    [1]=>
+				    string(7) "require"
+				    [2]=>
+				    string(18) "分类不能为空"
+				    [3]=>
+				    int(1)
+				    [4]=>
+				    string(5) "regex"
+				    [5]=>
+				    int(1)
+				  }
+				  [4]=>
+				  array(6) {
+				    [0]=>
+				    string(11) "category_id"
+				    [1]=>
+				    string(7) "require"
+				    [2]=>
+				    string(18) "分类不能为空"
+				    [3]=>
+				    int(0)
+				    [4]=>
+				    string(5) "regex"
+				    [5]=>
+				    int(2)
+				  }
+				  [5]=>
+				  array(6) {
+				    [0]=>
+				    string(16) "category_id,type"
+				    [1]=>
+				    string(13) "checkCategory"
+				    [2]=>
+				    string(21) "内容类型不正确"
+				    [3]=>
+				    int(1)
+				    [4]=>
+				    string(8) "callback"
+				    [5]=>
+				    int(1)
+				  }
+			  [6]=>
+			  array(6) {
+			    [0]=>
+			    string(11) "category_id"
+			    [1]=>
+			    string(13) "checkCategory"
+			    [2]=>
+			    string(30) "该分类不允许发布内容"
+			    [3]=>
+			    int(0)
+			    [4]=>
+			    string(8) "callback"
+			    [5]=>
+			    int(3)
+			  }
+			  [7]=>
+			  array(6) {
+			    [0]=>
+			    string(20) "model_id,category_id"
+			    [1]=>
+			    string(10) "checkModel"
+			    [2]=>
+			    string(33) "该分类没有绑定当前模型"
+			    [3]=>
+			    int(1)
+			    [4]=>
+			    string(8) "callback"
+			    [5]=>
+			    int(1)
+			  }
+			}
+        	 */
             $_validate   =   $this->_validate;
         }
+        
         // 属性验证
         if(isset($_validate)) { // 如果设置了数据自动验证则进行数据验证
             if($this->patchValidate) { // 重置验证错误信息
@@ -1200,10 +1369,10 @@ class Model {
                 // 验证因子定义格式
                 // array(field,rule,message,condition,type,when,params)
                 // 判断是否需要执行验证
-                if(empty($val[5]) || $val[5]== self::MODEL_BOTH || $val[5]== $type ) {
+                if(empty($val[5]) || $val[5]== self::MODEL_BOTH || $val[5]== $type ) {	//没有when或者when为3时，是在数据写入时、编辑时进行数据验证
                     if(0==strpos($val[2],'{%') && strpos($val[2],'}'))
                         // 支持提示信息的多语言 使用 {%语言定义} 方式
-                        $val[2]  =  L(substr($val[2],2,-1));
+                        $val[2]  =  L(substr($val[2],2,-1));	//substr()的第二个参数为负，表示从字符串末尾往回算
                     $val[3]  =  isset($val[3])?$val[3]:self::EXISTS_VALIDATE;
                     $val[4]  =  isset($val[4])?$val[4]:'regex';
                     // 判断验证条件
@@ -1233,19 +1402,39 @@ class Model {
     /**
      * 验证表单字段 支持批量验证
      * 如果批量验证返回错误的数组信息
+     * 调用_validationFieldItem()，如果验证出错，设置$this->error为自定义错误提示
      * @access protected
      * @param array $data 创建数据
      * @param array $val 验证因子
      * @return boolean
      */
     protected function _validationField($data,$val) {
+    	/*
+    	 * $data>>>array(
+    	 * 		'uid'=>1,
+    	 * 		'name'=>'test',
+    	 * 		'title'=>'haha',
+    	 * )
+    	 * $val>>>array(
+    	 * 		'name',
+    	 * 		'/^[a-zA-Z]\w{0,30}$/',
+    	 * 		'文档标识不合法',
+    	 * 		2,
+    	 * 		'regex',
+    	 * 		3
+    	 * )
+    	 */
+    	/*
+    	 * $this->patchValidate>>>false
+    	 * $this->error[$val[0]]>>>''
+    	 */
         if($this->patchValidate && isset($this->error[$val[0]]))
             return ; //当前字段已经有规则验证没有通过
-        if(false === $this->_validationFieldItem($data,$val)){
+        if(false === $this->_validationFieldItem($data,$val)){	//用的是===
             if($this->patchValidate) {
                 $this->error[$val[0]]   =   $val[2];
             }else{
-                $this->error            =   $val[2];
+                $this->error            =   $val[2];	//'文档标识不合法',将自定义的错误提醒作为错误信息，
                 return false;
             }
         }
@@ -1254,15 +1443,31 @@ class Model {
 
     /**
      * 根据验证因子验证字段
+     * 验证因子包括function 、callback、confirm、unique等，默认是调用check()
      * @access protected
      * @param array $data 创建数据
      * @param array $val 验证因子
      * @return boolean
      */
     protected function _validationFieldItem($data,$val) {
+    	/*
+    	 * $data>>>array(
+    	 * 		'uid'=>1,
+    	 * 		'name'=>'test',
+    	 * 		'title'=>'haha',
+    	 * )
+         * $val>>>array(
+    	 * 		'name',
+    	 * 		'/^[a-zA-Z]\w{0,30}$/',
+    	 * 		'文档标识不合法',
+    	 * 		2,
+    	 * 		'regex',
+    	 * 		3
+    	 * )
+    	*/
         switch(strtolower(trim($val[4]))) {
             case 'function':// 使用函数进行验证
-            case 'callback':// 调用方法进行验证
+            case 'callback':// 调用方法进行验证，当前模型的一个方法
                 $args = isset($val[6])?(array)$val[6]:array();
                 if(is_string($val[0]) && strpos($val[0], ','))
                     $val[0] = explode(',', $val[0]);
@@ -1280,8 +1485,9 @@ class Model {
                     return call_user_func_array(array(&$this, $val[1]), $args);
                 }
             case 'confirm': // 验证两个字段是否相同
+            	//用==实现'confirm'
                 return $data[$val[0]] == $data[$val[1]];
-            case 'unique': // 验证某个值是否唯一
+            case 'unique': // 验证某个值是否唯一，查询数据库
                 if(is_string($val[0]) && strpos($val[0],','))
                     $val[0]  =  explode(',',$val[0]);
                 $map = array();
@@ -1293,17 +1499,18 @@ class Model {
                     $map[$val[0]] = $data[$val[0]];
                 }
                 if(!empty($data[$this->getPk()])) { // 完善编辑的时候验证唯一
-                    $map[$this->getPk()] = array('neq',$data[$this->getPk()]);
+                    $map[$this->getPk()] = array('neq',$data[$this->getPk()]);	//debug>>>干嘛的？
                 }
-                if($this->where($map)->find())   return false;
+                if($this->where($map)->find())   return false;	//可以用于注册用户时的用户名
                 return true;
             default:  // 检查附加规则
-                return $this->check($data[$val[0]],$val[1],$val[4]);
+                return $this->check($data[$val[0]],$val[1],$val[4]);	//指定待验证的字段值、验证规则、验证规则类别
         }
     }
 
     /**
      * 验证数据 支持 in between equal length regex expire ip_allow ip_deny
+     * 实现上述验证方法，默认是执行'regex'，调用regex()
      * @access public
      * @param string $value 验证数据
      * @param mixed $rule 验证表达式
@@ -1311,23 +1518,27 @@ class Model {
      * @return boolean
      */
     public function check($value,$rule,$type='regex'){
-        $type   =   strtolower(trim($type));
+        $type   =   strtolower(trim($type));	//将验证方式名称统一成了小写。
         switch($type) {
+        	//支持数组或者字符串形式
             case 'in': // 验证是否在某个指定范围之内 逗号分隔字符串或者数组
             case 'notin':
-                $range   = is_array($rule)? $rule : explode(',',$rule);
-                return $type == 'in' ? in_array($value ,$range) : !in_array($value ,$range);
+                $range   = is_array($rule)? $rule : explode(',',$rule);	//将验证表达式转换成数组
+                return $type == 'in' ? in_array($value ,$range) : !in_array($value ,$range);	//用in_array()实现'in'
             case 'between': // 验证是否在某个范围
             case 'notbetween': // 验证是否不在某个范围            
+            	//支持数组或者字符串形式
                 if (is_array($rule)){
                     $min    =    $rule[0];
                     $max    =    $rule[1];
                 }else{
                     list($min,$max)   =  explode(',',$rule);
                 }
+                //用>=、 <=、&&实现'between'；<、>、||实现'notbetween'
                 return $type == 'between' ? $value>=$min && $value<=$max : $value<$min || $value>$max;
             case 'equal': // 验证是否等于某个值
             case 'notequal': // 验证是否等于某个值            
+            	//用==实现'equal'、!=实现'notequal'
                 return $type == 'equal' ? $value == $rule : $value != $rule;
             case 'length': // 验证长度
                 $length  =  mb_strlen($value,'utf-8'); // 当前数据长度
@@ -1337,16 +1548,19 @@ class Model {
                 }else{// 指定长度
                     return $length == $rule;
                 }
-            case 'expire':
+            case 'expire':	//验证是否在有效期
                 list($start,$end)   =  explode(',',$rule);
-                if(!is_numeric($start)) $start   =  strtotime($start);
-                if(!is_numeric($end)) $end   =  strtotime($end);
+                //将时间转化成时间戳形式。用NOW_TIME进行比较
+                if(!is_numeric($start)) $start   =  strtotime($start);	//'2014-10-31'
+                if(!is_numeric($end)) $end   =  strtotime($end);	//'2015-12-21'
                 return NOW_TIME >= $start && NOW_TIME <= $end;
             case 'ip_allow': // IP 操作许可验证
+            	//in_array()、get_client_ip()实现
                 return in_array(get_client_ip(),explode(',',$rule));
             case 'ip_deny': // IP 操作禁止验证
+            	//!in_array()、get_client_ip()实现
                 return !in_array(get_client_ip(),explode(',',$rule));
-            case 'regex':
+            case 'regex':	//debug>>>这个可以删除额
             default:    // 默认使用正则验证 可以使用验证类中定义的验证名称
                 // 检查附加规则
                 return $this->regex($value,$rule);
@@ -1570,6 +1784,7 @@ class Model {
 
     /**
      * 获取数据表字段信息
+     * 调用db类的getFields()，用array_keys()获取键
      * @access public
      * @return array
      */
