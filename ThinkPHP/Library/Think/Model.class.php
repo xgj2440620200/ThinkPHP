@@ -1569,6 +1569,8 @@ class Model {
 
     /**
      * SQL查询
+     * 1.调用parseSql()解析出sql语句
+     * 2.调用db类的query()执行sql语句，并返回结果
      * @access public
      * @param string $sql  SQL指令
      * @param mixed $parse  是否需要解析SQL
@@ -1585,6 +1587,8 @@ class Model {
 
     /**
      * 执行SQL语句
+     * 1.调用parseSql()解析sql语句
+     * 2.调用db类的execute()，返回结果
      * @access public
      * @param string $sql  SQL指令
      * @param mixed $parse  是否需要解析SQL
@@ -1601,6 +1605,9 @@ class Model {
 
     /**
      * 解析SQL语句
+     * 1.专一sql中的表名、前缀
+     * 2.调用db类的setModel()设置$model属性
+     * 3.返回sql
      * @access public
      * @param string $sql  SQL指令
      * @param boolean $parse  是否需要解析SQL
@@ -1624,6 +1631,8 @@ class Model {
     /**
      * 切换当前的数据库连接
      * 字段类型检测
+     * 声明一个静态数组，用于存放数据库连接的实例，切换数据库连接，就是获取不同的单元
+     * 数据库连接实例是调用db的getDbInstance()获取的
      * @access public
      * @param integer $linkNum  连接序号
      * @param mixed $config  数据库连接信息
