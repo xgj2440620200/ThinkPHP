@@ -1775,7 +1775,7 @@ class Model {
      * @return string
      */
     public function getLastSql() {
-        return $this->db->getLastSql($this->name);
+        return $this->db->getLastSql($this->name);	//基于模型名的
     }
     // 鉴于getLastSql比较常用 增加_sql 别名
     public function _sql(){
@@ -1813,6 +1813,7 @@ class Model {
 
     /**
      * 设置数据对象值
+     * 将数据复制给对象的属性，没有做任何验证、安全操作
      * @access public
      * @param mixed $data 数据
      * @return Model
@@ -1834,6 +1835,7 @@ class Model {
 
     /**
      * 指定当前的数据表
+     * 支持数组和字符串形式，数组形式用于避免mysql关键字的冲突，必须要用带前缀的完整表名；字符串形式中表名只能有中划线、下划线、英文字母。
      * @access public
      * @param mixed $table
      * @return Model
@@ -1841,9 +1843,20 @@ class Model {
     public function table($table) {
         $prefix =   $this->tablePrefix;
         if(is_array($table)) {
-            $this->options['table'] =   $table;
+        	/*
+        	 * 尽量避免和mysql的关键字冲突
+        	 * $model->field('user.name,role.title')
+        	 * ->table(array('think_user'=>'user','think_role'=>'role')
+        	 * ->limit(10)->select();
+        	 * 一般不用在关联查询
+        	 */
+            $this->options['table'] =   $table;	//必须用包含表前缀的完整表名
         }elseif(!empty($table)) {
-            //将__TABLE_NAME__替换成带前缀的表名
+            /*将__TABLE_NAME__替换成带前缀的表名
+             *正则表达式忽略了空格等其他字符，所以在用table()时比较安全。表名中只能有中划线、下划线、英文字母。
+             *将字符串转换成了小写形式。即数据库中表名只能是小写
+             */
+            
             $table  = preg_replace_callback("/__([A-Z_-]+)__/sU", function($match) use($prefix){ return $prefix.strtolower($match[1]);}, $table);
             $this->options['table'] =   $table;
         }
@@ -1852,40 +1865,49 @@ class Model {
 
     /**
      * 查询SQL组装 join
+     * 支持数组和字符串形式，默认为内连接，连接方式由第二个参数指定
+     * 使用preg_replace_callback()进行了完整表名的拼接
      * @access public
      * @param mixed $join
      * @param string $type JOIN类型
      * @return Model
      */
-    public function join($join,$type='INNER') {
+    public function join($join,$type='INNER') {	//默认是内连接
         $prefix =   $this->tablePrefix;
         if(is_array($join)) {
+        	/*
+        	 * join(array('__WORK__ ON __ARTIST__.id = __WORK__.artist_id','__CARD__ ON __ARTIST__.card_id = __CARD__.id'))
+        	 */
             foreach ($join as $key=>&$_join){
                 $_join  =   preg_replace_callback("/__([A-Z_-]+)__/sU", function($match) use($prefix){ return $prefix.strtolower($match[1]);}, $_join);
                 $_join  =   false !== stripos($_join,'JOIN')? $_join : $type.' JOIN ' .$_join;
             }
-            $this->options['join']      =   $join;
+            $this->options['join']      =   $join;	//join是个多维数组
         }elseif(!empty($join)) {
             //将__TABLE_NAME__字符串替换成带前缀的表名
             $join  = preg_replace_callback("/__([A-Z_-]+)__/sU", function($match) use($prefix){ return $prefix.strtolower($match[1]);}, $join);
-            $this->options['join'][]    =   false !== stripos($join,'JOIN')? $join : $type.' JOIN '.$join;
+            $this->options['join'][]    =   false !== stripos($join,'JOIN')? $join : $type.' JOIN '.$join;	//join是个多维数组
         }
         return $this;
     }
 
     /**
      * 查询SQL组装 union
+     * 支持数组和字符串形式,对象形式的$union参数用的比较少，第二个参数决定是否union all
+     * 只是用了preg_replace_callback()替换完整表名
+     * 类似于join，因为具有比较完整的sql语句，只是替换完整表名
+     * union对应的是一个多维数组
      * @access public
      * @param mixed $union
      * @param boolean $all
      * @return Model
      */
     public function union($union,$all=false) {
-        if(empty($union)) return $this;
+        if(empty($union)) return $this;	//应该在别的方法中也加上这个缺少的判断
         if($all) {
             $this->options['union']['_all']  =   true;
         }
-        if(is_object($union)) {
+        if(is_object($union)) {	//对象的方式用的少
             $union   =  get_object_vars($union);
         }
         // 转换union表达式
@@ -1915,7 +1937,10 @@ class Model {
      * @param string $type
      * @return Model
      */
-    public function cache($key=true,$expire=null,$type=''){
+    public function cache($key=true,$expire=null,$type=''){	//默认是true，所以在使用时可以不用指定cache(true)
+    	/*$res = $model->cache('key', 60)->find();	//生成查询缓存
+    	 * $data = S('key');	//直接使用
+    	 */
         if(false !== $key)
             $this->options['cache']  =  array('key'=>$key,'expire'=>$expire,'type'=>$type);
         return $this;
@@ -2041,6 +2066,7 @@ class Model {
 
     /**
      * 指定分页
+     * 通过$listRows是否为null来拼接page的值
      * @access public
      * @param mixed $page 页数
      * @param mixed $listRows 每页数量
@@ -2093,6 +2119,7 @@ class Model {
      * @return Model
      */
     public function setProperty($name,$value) {
+    	//property_exists——价差对象或类是否具有该属性
         if(property_exists($this,$name))
             $this->$name = $value;
         return $this;

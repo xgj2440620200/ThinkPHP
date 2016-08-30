@@ -12,7 +12,7 @@
  * 所有除开系统级别的前台配置
  */
 return array(
-
+	
     // 预先加载的标签库
     'TAGLIB_PRE_LOAD'     =>    'OT\\TagLib\\Article,OT\\TagLib\\Think',
         
@@ -94,5 +94,8 @@ return array(
         'hash'     => true, //是否生成hash编码
         'callback' => false, //检测文件是否存在回调函数，如果存在返回文件信息数组
     ), //附件上传配置（文件上传类配置）
-
+	
+    'LOG_RECORD' => true, //开启日志记录
+    'LOG_LEVEL' => 'EMERG,ALERT,CRIT,ERR,WARN,NOTICE,INFO,DEBUG,SQL',	//
+    'LOG_TYPE' => 'File',
 );
