@@ -91,6 +91,7 @@ class DocumentModel extends Model{
 		}
 
 		/* 获取模型数据 */
+		//logic继承baselogic,baselogic继承model
 		$logic  = $this->logic($info['model_id']);
 		$detail = $logic->detail($id); //获取指定ID的数据
 		if(!$detail){
@@ -310,7 +311,8 @@ class DocumentModel extends Model{
 	 * @return object         模型对象
 	 */
 	private function logic($model){
-		return D(get_document_model($model, 'name'), 'Logic');
+		//实例化了logic层中的article类
+		return D(get_document_model($model, 'name'), 'Logic');	//TODO
 	}
 
 	/**

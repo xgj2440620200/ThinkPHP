@@ -54,22 +54,23 @@ class ArticleController extends HomeController {
 		}
 
 		/* 页码检测 */
-		$p = intval($p);
-		$p = empty($p) ? 1 : $p;
-
+		//$p = intval($p);
+		//$p = empty($p) ? 1 : $p;
+		$p = empty(intval($p))? 1 : $p;
+		
 		/* 获取详细信息 */
 		$Document = D('Document');
-		$info = $Document->detail($id);
+		$info = $Document->detail($id);	
 		if(!$info){
 			$this->error($Document->getError());
 		}
 
 		/* 分类信息 */
-		$category = $this->category($info['category_id']);
+		$category = $this->category($info['category_id']);//2
 
 		/* 获取模板 */
 		if(!empty($info['template'])){//已定制模板
-			$tmpl = $info['template'];
+			$tmpl = $info['template'];	//模板的路径
 		} elseif (!empty($category['template_detail'])){ //分类已定制模板
 			$tmpl = $category['template_detail'];
 		} else { //使用默认模板
