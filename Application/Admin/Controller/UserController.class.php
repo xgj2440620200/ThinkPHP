@@ -176,11 +176,11 @@ class UserController extends AdminController {
      * @author 朱亚杰 <zhuyajie@topthink.net>
      */
     public function changeStatus($method=null){
-        $id = array_unique((array)I('id',0));
+        $id = array_unique((array)I('id',0));	//可以批量操作
         if( in_array(C('USER_ADMINISTRATOR'), $id)){
             $this->error("不允许对超级管理员执行该操作!");
         }
-        $id = is_array($id) ? implode(',',$id) : $id;
+        $id = is_array($id) ? implode(',',$id) : $id;//第一步已经进行了数组的转换操作，这里不应该判断是否为数组
         if ( empty($id) ) {
             $this->error('请选择要操作的数据!');
         }

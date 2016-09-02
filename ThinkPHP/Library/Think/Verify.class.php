@@ -68,7 +68,7 @@ class Verify {
      * @return bool 用户验证码是否正确
      */
     public function check($code, $id = '') {
-        $key = $this->authcode($this->seKey);
+        $key = $this->authcode($this->seKey);	//获取秘钥，秘钥是与验证码无关的
         // 验证码不能为空
         $session = session($key);
         if(empty($code) || empty($session)) {
@@ -100,8 +100,17 @@ class Verify {
         // 图片高(px)
         $this->imageH || $this->imageH = $this->fontSize * 2.5;
         // 建立一幅 $this->imageW x $this->imageH 的图像
+        /*
+         * imagecreate——新建一个基于调色板的图像
+         * 返回一个图像标识符，代表了一幅大小为x_size何y_size的空白图像。
+         */
         $this->_image = imagecreate($this->imageW, $this->imageH); 
-        // 设置背景      
+        // 设置背景  
+        /*
+         * imagecolorallocate——为一幅图像分配颜色
+         * 返回一个标识符，代表了由给定的RGB成分组成的颜色。第一次对imagecolorallocate()的调用会给基于调色板的图像填充背景色，即
+         * imagecreate()建立的图像。
+         */    
         imagecolorallocate($this->_image, $this->bg[0], $this->bg[1], $this->bg[2]); 
 
         // 验证码字体随机颜色
@@ -110,19 +119,32 @@ class Verify {
         $ttfPath = dirname(__FILE__) . '/Verify/' . ($this->useZh ? 'zhttfs' : 'ttfs') . '/';
 
         if(empty($this->fontttf)){
+        	/*
+        	 * dir——返回一个Directory实例
+        	 * 以面向对象的方式访问目录。打开directory参数指定的目录。
+        	 */
             $dir = dir($ttfPath);
             $ttfs = array();		
+            /*
+             * Directory类：
+             * close()——释放目录句柄
+             * read()——从目录句柄中读取条目
+             * rewind()——倒回目录句柄
+             */
             while (false !== ($file = $dir->read())) {
-                if($file[0] != '.' && substr($file, -4) == '.ttf') {
+                if($file[0] != '.' && substr($file, -4) == '.ttf') {//截取字符串是包括起点的
                     $ttfs[] = $file;
                 }
             }
             $dir->close();
+            /*
+             * array_rand——从数组中随机去除一个或多个单元
+             */
             $this->fontttf = $ttfs[array_rand($ttfs)];
         } 
         $this->fontttf = $ttfPath . $this->fontttf;
         
-        if($this->useImgBg) {
+        if($this->useImgBg) {	//TODO
             $this->_background();
         }
         
@@ -272,11 +294,11 @@ class Verify {
         @imagedestroy($bgImage);
     }
 
-    /* 加密验证码 */
+    /* 加密验证码 ，md5加密*/
     private function authcode($str){
-        $key = substr(md5($this->seKey), 5, 8);
-        $str = substr(md5($str), 8, 10);
-        return md5($key . $str);
+        $key = substr(md5($this->seKey), 5, 8);	//加密秘钥
+        $str = substr(md5($str), 8, 10);	//如果传过来的$str就是$this->seKey，那不是多余操作？
+        return md5($key . $str);	//返回5个字符
     }
 
 }

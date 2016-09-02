@@ -59,15 +59,16 @@ class MemberModel extends Model {
 
     /**
      * 自动登录用户
+     * 更新member表中的登录信息、缓存用户名、uid、最后登录时间、缓存数字签名
      * @param  integer $user 用户信息数组
      */
     private function autoLogin($user){
         /* 更新登录信息 */
         $data = array(
-            'uid'             => $user['uid'],
+            'uid'             => $user['uid'],	//uid是member表的主键
             'login'           => array('exp', '`login`+1'),
             'last_login_time' => NOW_TIME,
-            'last_login_ip'   => get_client_ip(1),
+            'last_login_ip'   => get_client_ip(1),	//debug>>>为什么每次重新获取ip地址
         );
         $this->save($data);
 
@@ -78,7 +79,7 @@ class MemberModel extends Model {
             'last_login_time' => $user['last_login_time'],
         );
 
-        session('user_auth', $auth);
+        session('user_auth', $auth);	//缓存了uid、用户名、最后登录时间
         session('user_auth_sign', data_auth_sign($auth));
 
     }

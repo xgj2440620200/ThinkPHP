@@ -173,9 +173,9 @@ function think_decrypt($data, $key = ''){
 function data_auth_sign($data) {
     //数据类型检测
     if(!is_array($data)){
-        $data = (array)$data;
+        $data = (array)$data;	//用对象的方式
     }
-    ksort($data); //排序
+    ksort($data); //排序debug>>>这个排序有什么作用？
     //http_build_query——生成URL-encode之后的请求字符串
     $code = http_build_query($data); //url编码并生成query字符串
     //sha1——计算字符串的sha1散列值。
@@ -606,8 +606,7 @@ function action_log($action = null, $model = null, $record_id = null, $user_id =
         $data['remark']     =   '操作url：'.$_SERVER['REQUEST_URI'];
     }
 
-    M('ActionLog')->add($data);
-
+    M('ActionLog')->add($data);	//把"ActionLog"解析成了"action_log"
     if(!empty($action_info['rule'])){
         //解析行为
         $rules = parse_action($action, $user_id);

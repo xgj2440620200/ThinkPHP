@@ -22,6 +22,12 @@ class PublicController extends \Think\Controller {
      */
     public function login($username = null, $password = null, $verify = null){
         if(IS_POST){
+        	/*
+        	 * 1.检测验证码
+        	 * 2.调用UC登录接口登录
+        	 * 3.调用member中的登录方法登录
+        	 * 4.跳转到登录页面
+        	 */
             /* 检测验证码 TODO: */
             if(!check_verify($verify)){
                 $this->error('验证码输入错误！');
@@ -30,8 +36,8 @@ class PublicController extends \Think\Controller {
             /* 调用UC登录接口登录 */
             $User = new UserApi;
             $uid = $User->login($username, $password);
-            if(0 < $uid){ //UC登录成功
-                /* 登录用户 */
+            if(0 < $uid){ //UC登录成功。没有缓存任何信息，只是返回了uid
+                /* 登录用户 */ //UC登录成功后还要登录用户
                 $Member = D('Member');
                 if($Member->login($uid)){ //登录用户
                     //TODO:跳转到登录前页面

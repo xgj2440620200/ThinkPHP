@@ -145,10 +145,10 @@ class UcenterMemberModel extends Model{
 		}
 
 		/* 获取用户数据 */
-		$user = $this->where($map)->find();
+		$user = $this->where($map)->find();	//并不是用count()
 		if(is_array($user) && $user['status']){
 			/* 验证用户密码 */
-			if(think_ucenter_md5($password, UC_AUTH_KEY) === $user['password']){
+			if(think_ucenter_md5($password, UC_AUTH_KEY) === $user['password']){//用的是强等于
 				$this->updateLogin($user['id']); //更新用户登录信息
 				return $user['id']; //登录成功，返回用户ID
 			} else {

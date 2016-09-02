@@ -13,7 +13,7 @@
  * @return string 
  */
 function think_ucenter_md5($str, $key = 'ThinkUCenter'){
-	return '' === $str ? '' : md5(sha1($str) . $key);
+	return '' === $str ? '' : md5(sha1($str) . $key); //用了md5和sha1
 }
 
 /**
