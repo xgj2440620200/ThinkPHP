@@ -631,14 +631,14 @@ class ArticleController extends AdminController {
             $map['update_time'][] = array('egt',strtotime(I('time-start')));
         }
         if ( isset($_GET['time-end']) ) {
-            $map['update_time'][] = array('elt',24*60*60 + strtotime(I('time-end')));
+            $map['update_time'][] = array('elt',24*60*60 + strtotime(I('time-end')));	//用的是小于或等于
         }
         //只查询pid为0的文章
         $map['pid'] = 0;
         $list = $this->lists($Document,$map,'update_time desc');
         int_to_string($list);
         // 记录当前列表页的cookie
-        Cookie('__forward__',$_SERVER['REQUEST_URI']);
+        Cookie('__forward__',$_SERVER['REQUEST_URI']);	
         $this->assign('status', $status);
         $this->assign('list', $list);
         $this->meta_title = '我的文档';

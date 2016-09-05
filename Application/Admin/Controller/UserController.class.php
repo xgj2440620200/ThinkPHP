@@ -49,6 +49,11 @@ class UserController extends AdminController {
 
     /**
      * 修改昵称提交
+     * 1.获取参数，检查参数是否为空
+     * 2.密码验证
+     * 3.创建信息，验证
+     * 4.执行sql更新操作
+     * 5.成功，则更新session中的用户信息；否则报错
      * @author huajie <banhuajie@163.com>
      */
     public function submitNickname(){
@@ -65,13 +70,13 @@ class UserController extends AdminController {
 
         $Member =   D('Member');
         $data   =   $Member->create(array('nickname'=>$nickname));
-        if(!$data){
+        if(!$data){	//在创建信息的时候就尝试获取错误，在出错的情况下，可以避免更新的sql操作
             $this->error($Member->getError());
         }
 
         $res = $Member->where(array('uid'=>$uid))->save($data);
 
-        if($res){
+        if($res){	//修改昵称后要更新session的用户信息
             $user               =   session('user_auth');
             $user['username']   =   $data['nickname'];
             session('user_auth', $user);
@@ -104,11 +109,11 @@ class UserController extends AdminController {
         $repassword = I('post.repassword');
         empty($repassword) && $this->error('请输入确认密码');
 
-        if($data['password'] !== $repassword){
+        if($data['password'] !== $repassword){	//用的是===
             $this->error('您输入的新密码与确认密码不一致');
         }
 
-        $Api    =   new UserApi();
+        $Api    =   new UserApi();	//TODO
         $res    =   $Api->updateInfo(UID, $password, $data);
         if($res['status']){
             $this->success('修改密码成功！');

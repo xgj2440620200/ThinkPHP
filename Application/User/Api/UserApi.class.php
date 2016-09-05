@@ -16,7 +16,7 @@ class UserApi extends Api{
      * 构造方法，实例化操作模型
      */
     protected function _init(){
-        $this->model = new UcenterMemberModel();
+        $this->model = new UcenterMemberModel();	//这种写法的功能，类似D();
     }
 
     /**
@@ -92,7 +92,7 @@ class UserApi extends Api{
             $return['status'] = true;
         }else{
             $return['status'] = false;
-            $return['info'] = $this->model->getError();
+            $return['info'] = $this->model->getError();	//出错才返回信息，并且是model类中的错误
         }
         return $return;
     }

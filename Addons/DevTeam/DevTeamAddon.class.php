@@ -38,6 +38,13 @@ use Common\Controller\Addon;
         //实现的AdminIndex钩子方法
         public function AdminIndex($param){
             $config = $this->getConfig();
+            /*
+             * $config = array(
+             * 		'title' => 'OneThink开发团队',
+             * 		'with' => '2',
+             * 		'diplay' => '1'
+             * )
+             */
             $this->assign('addons_config', $config);
             if($config['display'])
                 $this->display('widget');

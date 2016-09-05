@@ -100,12 +100,12 @@
             <!-- nav -->
             </block>
 
-            <block name="body"> </block>
+            <block name="body"> </block>	<!-- body块 -->
         </div>
         <div class="cont-ft">
             <div class="copyright">
                 <div class="fl">感谢使用<a href="http://www.onethink.cn" target="_blank">OneThink</a>管理平台</div>
-                <div class="fr">V{$Think.const.ONETHINK_VERSION}</div>
+                <div class="fr">V{$Think.const.ONETHINK_VERSION}</div>	<!-- debug>>>这里V是什么用法 -->
             </div>
         </div>
     </div>
@@ -120,12 +120,12 @@
             "MODEL"  : ["{:C('URL_MODEL')}", "{:C('URL_CASE_INSENSITIVE')}", "{:C('URL_HTML_SUFFIX')}"],
             "VAR"    : ["{:C('VAR_MODULE')}", "{:C('VAR_CONTROLLER')}", "{:C('VAR_ACTION')}"]
         }
-    })();
+    })();	//debug>>>后面的括号干嘛
     </script>
     <script type="text/javascript" src="__STATIC__/think.js"></script>
     <script type="text/javascript" src="__JS__/common.js"></script>
     <script type="text/javascript">
-        +function(){
+        +function(){	//debug>>>前面的+干嘛
             var $window = $(window), $subnav = $("#subnav"), url;
             $window.resize(function(){
                 $("#main").css("min-height", $window.height() - 130);

@@ -221,6 +221,9 @@ class UcenterMemberModel extends Model{
 
 	/**
 	 * 更新用户信息
+	 * 1.检查各个参数是否为空
+	 * 2.检查用户密码
+	 * 3.更新用户信息
 	 * @param int $uid 用户id
 	 * @param string $password 密码，用来验证
 	 * @param array $data 修改的字段数组

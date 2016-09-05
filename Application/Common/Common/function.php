@@ -385,8 +385,8 @@ function time_format($time = NULL,$format='Y-m-d H:i'){
  * @return string       用户名
  */
 function get_username($uid = 0){
-    static $list;
-    if(!($uid && is_numeric($uid))){ //获取当前登录用户名
+    static $list;	//全局意味着对所有用户都有效
+    if(!($uid && is_numeric($uid))){ //获取当前登录用户名。根据非0的uid获取session中的用户名
         return session('user_auth.username');
     }
 
@@ -406,9 +406,9 @@ function get_username($uid = 0){
             $name = $list[$key] = $info[1];
             /* 缓存用户 */
             $count = count($list);
-            $max   = C('USER_MAX_CACHE');
-            while ($count-- > $max) {
-                array_shift($list);
+            $max   = C('USER_MAX_CACHE');	//控制缓存用户的数量
+            while ($count-- > $max) {	//这里要注意
+                array_shift($list);	//将数组的开头单元移出
             }
             S('sys_active_user_list', $list);
         } else {

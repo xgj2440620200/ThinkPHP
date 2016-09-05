@@ -53,8 +53,8 @@ class MemberModel extends Model {
      * @return void
      */
     public function logout(){
-        session('user_auth', null);
-        session('user_auth_sign', null);
+        session('user_auth', null);	//用户信息
+        session('user_auth_sign', null);	//数字签名
     }
 
     /**
