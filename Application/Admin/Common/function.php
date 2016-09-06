@@ -247,7 +247,13 @@ function get_type_bycate($id = null){
         return false;
     }
     $type_list  =   C('DOCUMENT_MODEL_TYPE');
+    /*
+     * $type_list>>>array(2 => '主题', 1 => '目录', 3 => '段落')
+     */
     $model_type =   M('Category')->getFieldById($id, 'type');
+    /*
+     * $model_type>>>'2,3'
+     */
     $model_type =   explode(',', $model_type);
     foreach ($type_list as $key=>$value){
         if(!in_array($key, $model_type)){

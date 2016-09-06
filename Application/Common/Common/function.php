@@ -766,6 +766,7 @@ function get_table_name($model_id = null){
 
 /**
  * 获取属性信息并缓存
+ * debug>>>给属性排序有什么作用？
  * @param  integer $id    属性ID
  * @param  string  $field 要获取的字段名
  * @return string         属性信息
@@ -807,7 +808,7 @@ function get_model_attribute($model_id, $group = true){
         if(empty($sort)){	//未排序
             $group = array(1=>array_merge($attr));
         }else{
-            $group = json_decode($sort, true);
+            $group = json_decode($sort, true);	//数据库中是用json格式保存这个字段信息的
 
             $keys  = array_keys($group);
             foreach ($group as &$value) {
